@@ -1,0 +1,28 @@
+
+Reporting Bugs
+--------------
+
+  If you're using the Debian package of this shell then
+ please consider reporting your bug via the Debian bug
+ tracking system - this will allow all users to see it
+ and should speed fixing it.
+
+  Failing that you may use the xen-tools mailing list:
+
+        http://xen-tools.org/software/xen-shell/lists.html
+
+  If you're capable of fixing it yourself a patch is appreciated,
+ and a test case would be a useful bonus.
+
+
+Known Bugs
+----------
+
+  The Debian bug tracker might contains a list of all currently
+ open issues with the software:
+
+        http://bugs.debian.org/xen-shell
+
+
+Steve
+-- 

@@ -1,0 +1,105 @@
+#!/bin/sh
+#
+#  This is a simple helper script which will allow you to setup a new
+# Xen-aware user.
+#
+# Steve
+# --
+#
+
+
+
+#
+#  Get the user we're to add
+#
+user=$1
+if [ -z "${user}" ]; then
+    echo "Usage: xen-add-user username"
+    exit
+fi
+
+#
+#  Add the system user if it isn't already present
+#
+if ( grep ${user} /etc/passwd > /dev/null ) ; then
+    echo "Warning user ${user} already exists in the passwd file."
+    echo "Aborting"
+    exit
+else
+    echo "Creating new system user ${user}"
+    /usr/sbin/useradd "${user}"
+fi
+
+#
+#  Make a home directory
+#
+if [ -d "/home/${user}" ]; then
+    echo "Home directory already present.  Weird"
+    echo "Aborting"
+    exit
+else
+    echo "Making home directory for ${user}"
+    mkdir "/home/${user}"
+fi
+
+#
+#  Fix directory such the the user can modify the .ssh directory.
+#
+chown -R ${user}:users "/home/${user}"
+
+
+#
+#  Create an SSH login key, so they can access the xen-shell
+#
+echo "Creating SSH key"
+printf "\n\n\n\n" | su -c "ssh-keygen -t dsa" ${user}
+
+
+#
+#  Change the key file to be an authorized key file, and move the
+# public key file somewhere obvious.
+#
+if [ ! -e /home/${user}/.ssh/authorized_keys ]; then
+    echo "Changing key to be authorised keyfile"
+    mv /home/${user}/.ssh/id_dsa.pub  /home/${user}/.ssh/authorized_keys
+    mv /home/${user}/.ssh/id_dsa /home/${user}/key.${user}
+fi
+
+
+#
+#  Change the login shell for the new user.
+#
+echo "Changing login shell for ${user} to /usr/bin/xen-login-shell"
+chsh -s /usr/bin/xen-login-shell "${user}"
+
+
+#
+#  Create the reimage script
+#
+echo "Creating reimage script - NOTE YOU MUST UPDATE THIS"
+cat >/home/${user}/image.sh<<EOF
+#!/bin/sh
+#
+xen-create-image --hostname=${user} --size=10G --memory=256 --swap=256 --fs=ext3 --dist=sarge --mirror=http://mirror.bytemark.co.uk/debian --gateway=xx.xx.xx.xx --broadcast=xx.xx.xx.xx --ip=xx.xx.xx.xx --ip=xx.xx.xx.xx --lvm=xh
+EOF
+chmod 755 /home/${user}/image.sh
+
+
+#
+#  Change the ownership of the new home directory.
+#
+chown -R ${user}:users "/home/${user}"
+
+#
+#  Warning
+#
+if ( grep /usr/sbin/xm /etc/sudoers 2>/dev/null >/dev/null ) ; then
+
+    #
+    # OK
+    #
+    :
+else
+
+    echo "Do not forget to update /etc/sudoers appropriately."
+fi

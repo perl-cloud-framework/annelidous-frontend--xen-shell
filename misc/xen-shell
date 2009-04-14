@@ -1,0 +1,67 @@
+# -*- shell-script -*-
+#
+#  /etc/bash_completion.d/xen-shell
+#
+# Completion functions for Bash.  
+#
+#  References on command line completion:
+#
+#    http://www.debian-administration.org/articles/316
+#    http://www.debian-administration.org/articles/317
+#    http://dev.gentoo.org/~plasmaroo/devmanual/tasks-reference/completion/
+#
+# Steve
+# --
+# http://www.steve.org.uk
+#
+#
+
+
+#
+#  Utility function to find the names of each existing Xen image,
+# we do this by parsing the files matching /etc/xen/*.cfg
+#
+function _find_xen_images
+{
+    local names name
+
+    for i in /etc/xen/*.cfg ; do
+        name=`grep ^name $i 2>/dev/null | awk -F\'  '{print $2}'`
+        if [ ! -z "${name}" ] ; then
+            names="${names} ${name}"
+        fi
+    done
+
+    echo "${names}"
+}
+
+#
+#  Completion for xen-shell
+#
+#  Completes the command line flags, and will allow tab completion of
+# the available instances for control
+#
+_xen_shell()
+{
+    local cur prev
+
+    COMPREPLY=()
+    cur=${COMP_WORDS[COMP_CWORD]}
+    prev=${COMP_WORDS[COMP_CWORD-1]}
+    opts='--control --help --manual --version'
+    
+    case "$prev" in
+	--control)
+            names=`_find_xen_images`
+	    COMPREPLY=( $( compgen -W '${names}'  -- "${COMP_WORDS[COMP_CWORD]}" ) )
+	    return 0
+	    ;;
+    esac
+    
+    if [[ ${cur} == -* ]]; then
+        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+        return 0
+    fi
+}
+complete -F _xen_shell xen-shell
+
