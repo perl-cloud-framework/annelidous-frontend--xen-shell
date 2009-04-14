@@ -464,14 +464,27 @@ my %lookupTable;
 #
 #my $asearch=new Annelidous::Search(subclass=>'Annelida::Search::Ubersmith');
 require Annelidous::Search::Ubersmith;
-my $asearch=new Annelidous::Search::Ubersmith(
-        dbh=>DBI->connect(
+my $anneSearch=new Annelidous::Search::Ubersmith(
+        -dbh=>DBI->connect(
             "DBI:".$CONFIG{'annelidous-search-dbdriver'}.":".
             "host=".$CONFIG{'annelidous-search-dbhost'}.";".
             "database=".$CONFIG{'annelidous-search-dbname'}.";",
             $CONFIG{'annelidious-search-dbuser'},
             $CONFIG{'annelidious-search-dbpass'})
     );
+
+require Annelidous::Connector::Xen;
+my $anneConnector=new Annelidous::Connector::Xen;
+
+#
+# Annelidous
+#
+require Annelidous::Frontend;
+my $annelidous=new Annelidous::Frontend(
+	-search_module=>$anneSearch,
+	#-accounting_module=>$anneAccount,
+	-connector_module=>$anneConnector
+);
 
 #
 # The instances that the current user may control.
@@ -487,7 +500,7 @@ my $ACTIVE = '';
 # Tie ACTIVE to ActiveHandler.
 # ActiveHandler will update the $vm object.
 #
-tie $ACTIVE, "Annelidous::Frontend::XenShell::ActiveHandler", $asearch;
+tie $ACTIVE, "Annelidous::Frontend::XenShell::ActiveHandler", $annelidous;
 
 ####
 #
