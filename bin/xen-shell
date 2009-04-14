@@ -256,7 +256,6 @@ use Pod::Usage;
 
 BEGIN { push @INC,'/root/cloud/lib/'; }
 use Annelidous::Search;
-use Annelidous::VM;
 use Annelidous::Frontend::XenShell::ActiveHandler;
 
 #
@@ -466,7 +465,12 @@ my %lookupTable;
 #my $asearch=new Annelidous::Search(subclass=>'Annelida::Search::Ubersmith');
 require Annelidous::Search::Ubersmith;
 my $asearch=new Annelidous::Search::Ubersmith(
-        dbh=>DBI->connect("DBI:mysql:host=".$CONFIG{'annelidous-search-dbhost'}.";database=".$CONFIG{'annelidous-search-dbname'}.";", $CONFIG{'annelidious-search-dbuser'},$CONFIG{'annelidious-search-dbpass'})
+        dbh=>DBI->connect(
+            "DBI:".$CONFIG{'annelidous-search-dbdriver'}.":".
+            "host=".$CONFIG{'annelidous-search-dbhost'}.";".
+            "database=".$CONFIG{'annelidous-search-dbname'}.";",
+            $CONFIG{'annelidious-search-dbuser'},
+            $CONFIG{'annelidious-search-dbpass'})
     );
 
 #
@@ -480,15 +484,10 @@ my @INSTANCES;
 my $ACTIVE = '';
 
 #
-# Create a $vm object to control...
-#
-our $vm=new Annelidous::VM;
-
-#
 # Tie ACTIVE to ActiveHandler.
 # ActiveHandler will update the $vm object.
 #
-tie $ACTIVE, "Annelidous::Frontend::XenShell::ActiveHandler", $vm;
+tie $ACTIVE, "Annelidous::Frontend::XenShell::ActiveHandler", $asearch;
 
 ####
 #
