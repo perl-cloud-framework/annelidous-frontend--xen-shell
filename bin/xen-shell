@@ -1336,14 +1336,7 @@ sub getPrompt
 sub isRunning
 {
     my ($name) = (@_);
-
-    my $running = 0;
-    my $cmd     = "sudo xm list $name 2>/dev/null | grep $name";
-    my $out     = `$cmd`;
-
-    $running = 1 if ( ($out) && length($out) );
-
-    return ($running);
+    return (tied $name)->vm->status;
 }
 
 
@@ -1449,15 +1442,16 @@ sub do_boot
 
     print "Booting instance: $ACTIVE\n";
 
-    if ($console)
-    {
-        system("sudo xm create $ACTIVE.cfg -c");
-    }
-    else
-    {
-        system("sudo xm create $ACTIVE.cfg");
+# TODO: Implement console
+#    if ($console)
+#    {
+#		(tied $ACTIVE)->vm->boot(-console=>{ -tty=>$local_tty });
+#    }
+#    else
+#    {
+		(tied $ACTIVE)->vm->boot();
         print "Use 'console' to see the bootup messages.\n";
-    }
+#    }
 }
 
 
@@ -1483,7 +1477,7 @@ sub do_console
     print
       "(You might need to press return a couple of times to see activity.)\n\n";
 
-    system("sudo xm console $ACTIVE");
+	(tied $ACTIVE)->vm->console();
 
     print "\n";
 }
@@ -1714,8 +1708,7 @@ sub do_pause
     return if ( !isControlling() );
 
     print "Pausing instance: $ACTIVE\n";
-
-    system("sudo xm pause $ACTIVE");
+    (tied $ACTIVE)->vm->pause;
 
 }
 
@@ -1741,7 +1734,7 @@ sub do_reboot
     print "Rebooting instance: $ACTIVE\n";
 
     #system("sudo xm reboot $ACTIVE");
-    $vm->reboot;
+    (tied $ACTIVE)->vm->reboot;
 }
 
 =begin doc
@@ -2094,7 +2087,7 @@ sub do_shutdown
     return if ( !isControlling() );
 
     print "Shutting down instance: $ACTIVE\n";
-    system("sudo xm shutdown $ACTIVE 2>/dev/null");
+    (tied $ACTIVE)->vm->shutdown;
 
     #
     #  If we're forcing then we want to make sure it is gone.
@@ -2136,7 +2129,7 @@ sub do_shutdown
             do_sysreq("reissuo");
 
             sleep(2);
-            system("xm destroy $ACTIVE 2>/dev/null");
+			(tied $ACTIVE)->vm->destroy;
 
             print "System terminated.\n";
         }
@@ -2263,7 +2256,7 @@ EOF
         if ( $letter =~ /[a-z\?]/ )
         {
             print "Sending sysreq: $letter\n";
-            system("sudo xm sysrq $ACTIVE $letter 2>/dev/null");
+			(tied $ACTIVE)->vm->sysrq($letter);
         }
     }
 }
@@ -2305,7 +2298,7 @@ sub do_unpause
 
     print "Un-pausing instance: $ACTIVE\n";
 
-    system("sudo xm unpause $ACTIVE");
+	(tied $ACTIVE)->vm->unpause;
 }
 
 
@@ -2327,78 +2320,7 @@ sub do_uptime
     #
     return if ( !isControlling() );
 
-
-    my $host_uptime = `uptime`;
-    chomp($host_uptime);
-    print "Host : $host_uptime\n";
-
-    #
-    #  Info read from xm list.
-    #
-    my $upTime    = "";
-    my $startTime = "";
-
-    #
-    #  Seconds the guest has been up.
-    #
-    my $seconds = undef;
-
-    #
-    #  Find the uptime/start-time.
-    #
-    my $cmd = "sudo xm list --long $ACTIVE 2>/dev/null";
-
-    open( RUNNING, $cmd . "|" );
-    foreach my $line (<RUNNING>)
-    {
-        if ( $line =~ /\(up_time[ \t]*([0-9]+)/ )
-        {
-            $upTime = $1;
-        }
-        if ( $line =~ /\(start_time[ \t]*([0-9]+)/ )
-        {
-            $startTime = $1;
-        }
-    }
-    close(RUNNING);
-
-
-    #
-    #  If the 'up_time' line was present then we'll save the seconds.
-    #
-    if ( defined($upTime) && length($upTime) )
-    {
-        $seconds = $upTime;
-    }
-    elsif ( defined($startTime) && length($startTime) )
-    {
-
-        #
-        #  Get the seconds the guest has been up.
-        #
-        my $time = time;
-        $seconds = $time - $startTime;
-    }
-    else
-    {
-
-        #
-        #  Guest uptime not found?   Either :
-        #
-        #  1.  Guest not running.
-        #
-        #  2.  Bug
-        #
-        if ( isRunning($ACTIVE) )
-        {
-            print "Guest: Uptime not found for $ACTIVE\n";
-        }
-        else
-        {
-            print "Guest uptime unknown - guest not running!\n";
-        }
-        return;
-    }
+    my $seconds=(tied $ACTIVE)->vm->uptime;
 
     #
     #  Now parse the seconds into days/hours/minutes/seconds.
@@ -2431,27 +2353,6 @@ sub do_uptime
 
 sub do_version
 {
-    my $xen = "";
-    my $cmd = "sudo xm info 2>/dev/null";
-
-    open( INFO, $cmd . "|" );
-    foreach my $line (<INFO>)
-    {
-        if ( $line =~ /^xen_major.*: (.*)$/ )
-        {
-            $xen .= $1;
-        }
-        if ( $line =~ /^xen_minor.*: (.*)$/ )
-        {
-            $xen .= "." . $1;
-        }
-        if ( $line =~ /^xen_extra.*: (.*)$/ )
-        {
-            $xen .= $1;
-        }
-    }
-    close(INFO);
-
     if ( $CONFIG{ 'banner' } )
     {
         print $CONFIG{ 'banner' } . "\n";
@@ -2460,11 +2361,6 @@ sub do_version
     {
         print "xen-shell v$RELEASE";
     }
-    if ( length($xen) )
-    {
-        print " running on Xen version $xen";
-    }
-
     print "\n";
 }
 
