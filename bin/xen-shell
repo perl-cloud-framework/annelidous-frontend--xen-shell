@@ -469,8 +469,8 @@ my $anneSearch=new Annelidous::Search::Ubersmith(
             "DBI:".$CONFIG{'annelidous-search-dbdriver'}.":".
             "host=".$CONFIG{'annelidous-search-dbhost'}.";".
             "database=".$CONFIG{'annelidous-search-dbname'}.";",
-            $CONFIG{'annelidious-search-dbuser'},
-            $CONFIG{'annelidious-search-dbpass'})
+            $CONFIG{'annelidous-search-dbuser'},
+            $CONFIG{'annelidous-search-dbpass'})
     );
 
 require Annelidous::Connector::Xen;
