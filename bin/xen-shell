@@ -255,6 +255,7 @@ use Getopt::Long;
 use Pod::Usage;
 
 BEGIN { push @INC,'/root/cloud/lib/'; }
+use Annelidous::Connector::Xen;
 use Annelidous::Search;
 use Annelidous::Frontend::XenShell::ActiveHandler;
 
@@ -463,6 +464,8 @@ my %lookupTable;
 # Annelidous Search
 #
 #my $asearch=new Annelidous::Search(subclass=>'Annelida::Search::Ubersmith');
+use Data::Dumper;
+use DBI;
 require Annelidous::Search::Ubersmith;
 my $anneSearch=new Annelidous::Search::Ubersmith(
         -dbh=>DBI->connect(
@@ -473,8 +476,8 @@ my $anneSearch=new Annelidous::Search::Ubersmith(
             $CONFIG{'annelidous-search-dbpass'})
     );
 
-require Annelidous::Connector::Xen;
-my $anneConnector=new Annelidous::Connector::Xen;
+#require Annelidous::Connector::Xen;
+#my $anneConnector=new Annelidous::Connector::Xen;
 
 #
 # Annelidous
@@ -483,7 +486,7 @@ require Annelidous::Frontend;
 my $annelidous=new Annelidous::Frontend(
 	-search_module=>$anneSearch,
 	#-accounting_module=>$anneAccount,
-	-connector_module=>$anneConnector
+	-connector_module=>'Annelidous::Connector::Xen' #$anneConnector
 );
 
 #
@@ -754,7 +757,12 @@ sub sanityCheck
     #
     #
     #@INSTANCES = findInstancesFor($USER);
-    @INSTANCES = $annelidous->search->find_byusername($USER);
+	my @DBINSTANCES = $annelidous->search->find_byusername($USER);
+	foreach my $inst (@DBINSTANCES) {
+		#push @INSTANCES, $inst->{username};
+		push @INSTANCES, $inst->{id};
+	}
+    #@INSTANCES = $annelidous->search->find_byusername($USER);
     if ( !@INSTANCES || scalar(@INSTANCES) < 1 )
     {
         print "User '$USER' doesn't have a Xen guest on this host.\n";
@@ -769,7 +777,7 @@ sub sanityCheck
     #
     if ( scalar(@INSTANCES) == 1 )
     {
-        $ACTIVE = $INSTANCES[0];
+        $ACTIVE = $DBINSTANCES[0]->{'id'}; 
     }
 
 }
@@ -1336,7 +1344,7 @@ sub getPrompt
 sub isRunning
 {
     my ($name) = (@_);
-    return (tied $name)->vm->status;
+    return (tied $name)->connector->status;
 }
 
 
@@ -1445,11 +1453,13 @@ sub do_boot
 # TODO: Implement console
 #    if ($console)
 #    {
-#		(tied $ACTIVE)->vm->boot(-console=>{ -tty=>$local_tty });
+#		(tied $ACTIVE)->connector->boot(-console=>{ -tty=>$local_tty });
 #    }
 #    else
 #    {
-		(tied $ACTIVE)->vm->boot();
+		print "connector:";
+		print Dumper scalar((tied $ACTIVE)->connector);
+		(tied $ACTIVE)->connector->boot();
         print "Use 'console' to see the bootup messages.\n";
 #    }
 }
@@ -1477,7 +1487,7 @@ sub do_console
     print
       "(You might need to press return a couple of times to see activity.)\n\n";
 
-	(tied $ACTIVE)->vm->console();
+	(tied $ACTIVE)->connector->console();
 
     print "\n";
 }
@@ -1708,7 +1718,7 @@ sub do_pause
     return if ( !isControlling() );
 
     print "Pausing instance: $ACTIVE\n";
-    (tied $ACTIVE)->vm->pause;
+    (tied $ACTIVE)->connector->pause;
 
 }
 
@@ -1734,7 +1744,7 @@ sub do_reboot
     print "Rebooting instance: $ACTIVE\n";
 
     #system("sudo xm reboot $ACTIVE");
-    (tied $ACTIVE)->vm->reboot;
+    (tied $ACTIVE)->connector->reboot;
 }
 
 =begin doc
@@ -2087,7 +2097,7 @@ sub do_shutdown
     return if ( !isControlling() );
 
     print "Shutting down instance: $ACTIVE\n";
-    (tied $ACTIVE)->vm->shutdown;
+    (tied $ACTIVE)->connector->shutdown;
 
     #
     #  If we're forcing then we want to make sure it is gone.
@@ -2129,7 +2139,7 @@ sub do_shutdown
             do_sysreq("reissuo");
 
             sleep(2);
-			(tied $ACTIVE)->vm->destroy;
+			(tied $ACTIVE)->connector->destroy;
 
             print "System terminated.\n";
         }
@@ -2256,7 +2266,7 @@ EOF
         if ( $letter =~ /[a-z\?]/ )
         {
             print "Sending sysreq: $letter\n";
-			(tied $ACTIVE)->vm->sysrq($letter);
+			(tied $ACTIVE)->connector->sysrq($letter);
         }
     }
 }
@@ -2298,7 +2308,7 @@ sub do_unpause
 
     print "Un-pausing instance: $ACTIVE\n";
 
-	(tied $ACTIVE)->vm->unpause;
+	(tied $ACTIVE)->connector->unpause;
 }
 
 
@@ -2320,7 +2330,7 @@ sub do_uptime
     #
     return if ( !isControlling() );
 
-    my $seconds=(tied $ACTIVE)->vm->uptime;
+    my $seconds=(tied $ACTIVE)->connector->uptime;
 
     #
     #  Now parse the seconds into days/hours/minutes/seconds.
