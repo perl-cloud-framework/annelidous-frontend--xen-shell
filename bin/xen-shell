@@ -754,7 +754,7 @@ sub sanityCheck
     #
     #
     #@INSTANCES = findInstancesFor($USER);
-    @INSTANCES = $asearch->find_byusername($USER);
+    @INSTANCES = $annelidous->search->find_byusername($USER);
     if ( !@INSTANCES || scalar(@INSTANCES) < 1 )
     {
         print "User '$USER' doesn't have a Xen guest on this host.\n";
