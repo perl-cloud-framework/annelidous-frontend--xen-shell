@@ -248,7 +248,7 @@ The LICENSE file contains the full text of the license.
 
 
 
-use strict;
+#use strict;
 use warnings;
 use English;
 use Getopt::Long;
@@ -483,10 +483,11 @@ my $anneSearch=new Annelidous::Search::Ubersmith(
 # Annelidous
 #
 require Annelidous::Frontend;
+require Annelidous::Connector::Xen;
 my $annelidous=new Annelidous::Frontend(
 	-search_module=>$anneSearch,
 	#-accounting_module=>$anneAccount,
-	-connector_module=>'Annelidous::Connector::Xen' #$anneConnector
+	-connector_module=>Annelidous::Connector::Xen #$anneConnector
 );
 
 #
@@ -517,11 +518,14 @@ tie $ACTIVE, "Annelidous::Frontend::XenShell::ActiveHandler", $annelidous;
 # Find the username and homedir of the user who invoked this script.
 # EricW: Changed $REAL_USER_ID to $< as this worked on my systems.
 #
-my ($USER,undef,undef,undef,undef,undef,undef,undef,$HOME,undef,undef) = \
-    getpwuid($<);
+#my ($USER,undef,undef,undef,undef,undef,undef,undef,$HOME,undef,undef) = \
+#    getpwuid($<);
+my @UENT = getpwuid($<);
+my $USER = $UENT[0];
+my $HOME = $UENT[7];
 
 # Needed to add here with Perl 5.10??? Was okay before...
-$USER=${$USER};
+#$USER=${$USER};
 
 # For security, we sanity-check the $HOME variable.
 for ($HOME) {
@@ -1783,16 +1787,8 @@ sub do_restore
     #
     #  Run the xm-reimage
     #
-    if ( -x $CONFIG{'restore_cmd'} )
-    {
-        system($CONFIG{'restore_cmd'},$ACTIVE,$USER);
-        print "You may now boot your installation\n";
-    }
-    else
-    {
-        print "ERROR:  restore script not found.\n";
-        print "ERROR:  Please report this as a bug to your server admin.\n";
-    }
+	(tied $ACTIVE)->connector->reimage();
+	print "You may now boot your installation\n";
 }
 
 =begin doc
@@ -1832,16 +1828,8 @@ sub do_reimage
     #
     #  Run the xm-reimage
     #
-    if ( -x $CONFIG{'reimage_cmd'} )
-    {
-        system($CONFIG{'reimage_cmd'},$ACTIVE,$USER);
-        print "You may now boot your installation\n";
-    }
-    else
-    {
-        print "ERROR:  reimage script not found.\n";
-        print "ERROR:  Please report this as a bug to your server admin.\n";
-    }
+	(tied $ACTIVE)->connector->reimage();
+	print "You may now boot your installation\n";
 }
 
 =begin doc
@@ -1858,7 +1846,13 @@ sub do_sshkey
 
     if ( !defined($args) || ( !length($args) ) )
     {
+		unless (-f $HOME."/.ssh/authorized_keys") {
+			print "No SSH key defined. Set one with 'sshkey KEY'";
+			return;
+		}
 
+		print "Displaying SSH key.\n\n";
+		print "--- BEGIN SSH KEYS ---\n";
         # No arguments just show the current SSH key.
         open( CURRENT, "<", $HOME."/.ssh/authorized_keys" ) or return;
         while (<CURRENT>)
@@ -1866,6 +1860,7 @@ sub do_sshkey
             print;
         }
         close(CURRENT);
+		print "--- END SSH KEYS ---:\n";
         return;
     }
 
@@ -1912,24 +1907,28 @@ sub do_sshkey
     #
     # Here we will drop entries identical or similar.
     #
-    my @lines;
-    open( CURRENT, "<", $HOME."/.ssh/authorized_keys" ) or return;
-    while (<CURRENT>)
-    {
-        my $line = $_;
-        my ( undef, $b, undef ) = split( /[ \t]/, $line, 3 );
+	print "Reading in $HOME/.ssh/authorized_keys\n";
+	if (-f $HOME."/.ssh/authorized_keys") {
+		my @lines;
+		open( CURRENT, "<", $HOME."/.ssh/authorized_keys" ) or return;
+		while (<CURRENT>)
+		{
+			my $line = $_;
+			my ( undef, $b, undef ) = split( /[ \t]/, $line, 3 );
 
-	# Do the drop.
-        unless ( $b eq $base64 )
-	{
-	    push @lines, $line;
+		# Do the drop.
+			unless ( $b eq $base64 )
+		{
+			push @lines, $line;
+		}
+		}
+		close(CURRENT);
 	}
-    }
-    close(CURRENT);
 
     # Add our new line to the file
     push @lines,sprintf("%s %s %s\n", $format, $base64, $comment);
 
+	print "Setting SSH Key in $HOME/.ssh/authorized_keys\n";
     #
     #  Save the new details.
     #
