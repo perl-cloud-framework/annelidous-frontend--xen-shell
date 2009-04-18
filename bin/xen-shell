@@ -254,6 +254,8 @@ use English;
 use Getopt::Long;
 use Pod::Usage;
 
+use Crypt::PasswdMD5 qw(unix_md5_crypt);
+
 BEGIN { push @INC,'/root/cloud/lib/'; }
 use Annelidous::Connector::Xen;
 use Annelidous::Search;
@@ -1267,7 +1269,11 @@ sub runMainLoop
             # Add a successful line to our history, if we can.
             if ( UNIVERSAL::can( $term, 'add_history' ) )
             {
-                $term->add_history($line);
+                unless ($word =~ /passwd/) {
+					$term->add_history($line);
+				} else {
+					$term->add_history($word." **** ****");
+				}
             }
         }
         else
@@ -1347,8 +1353,11 @@ sub getPrompt
 
 sub isRunning
 {
-    my ($name) = (@_);
-    return (tied $name)->connector->status;
+    #my ($name) = (@_);
+    #return (tied $name)->connector->status;
+    my $status=(tied $ACTIVE)->connector->status;
+	print "$status\n";
+	return $status;
 }
 
 
@@ -1697,9 +1706,50 @@ sub do_list
 
 =cut
 
+# uses global @salt to construct salt string of requested length
+sub gensalt {
+	my $count = shift;
+	my @saltA = @_;
+
+	my $salt;
+	for (1..$count) {
+	$salt .= (@saltA)[rand @saltA];
+	}
+
+	return $salt;
+}
+
 sub do_password
 {
-    system("passwd");
+	my ($args,$args2) = split(/ /, shift);
+	#my ($args,$args2) = (@_);
+	#print "$args $args2";
+	my $encrypted;
+	my @salt = ( '.', '/', 0 .. 9, 'A' .. 'Z', 'a' .. 'z' );
+
+	unless ( defined ($args) && defined ($args2) ) {
+	#if ( length($args) < 1 || length($args2) < 1 ) {
+		print "Command usage:\n password NEW_PASSWORD REPEAT_PASSWORD\n";
+		return;
+	}
+	if (length($args) < 6) {
+		print "Password too short.\n";
+		return;
+	}
+	unless ($args eq $args2) {
+		print "Passwords do not match.\n";
+		return;
+	}
+
+
+	$encrypted=unix_md5_crypt( $args, gensalt(8,@salt) );
+
+    #system("passwd");
+	my $dbh=$anneSearch->{dbh};
+	my $sth=$dbh->prepare("update PACKAGES set password=? where username=?");
+	$sth->execute($encrypted,$USER);
+	$sth->finish();
+	print "Password changed.\n";
 }
 
 
@@ -2186,34 +2236,7 @@ sub do_status
     if ($running)
     {
         print "Guest : Running\n";
-
-        my $seconds = "";
-        my $cmd     = "sudo xm list --long $ACTIVE 2>/dev/null";
-
-        open( RUNNING, $cmd . "|" );
-        foreach my $line (<RUNNING>)
-        {
-            if ( $line =~ /\(up_time[ \t]*([0-9]+)/ )
-            {
-                $seconds = $1;
-            }
-        }
-        close(RUNNING);
-
-        if ( defined($seconds) && length($seconds) )
-        {
-            my $days = int( $seconds / ( 24 * 60 * 60 ) );
-            my $hours = ( $seconds / ( 60 * 60 ) ) % 24;
-            my $mins  = ( $seconds / 60 ) % 60;
-            my $secs  = $seconds % 60;
-
-            if ( length($hours) < 2 ) {$hours = "0" . $hours;}
-            if ( length($mins) < 2 )  {$mins  = "0" . $mins;}
-            if ( length($secs) < 2 )  {$secs  = "0" . $secs;}
-
-            print "Uptime: $days days $hours:$mins:$secs\n";
-        }
-    }
+	}
     else
     {
         print "Guest: Shutdown\n";
@@ -2282,8 +2305,9 @@ EOF
 
 sub do_top
 {
-    system("sudo xm top");
-    system("clear");
+    #system("sudo xm top");
+	print "top not supported in this version.\n";
+    #system("clear");
 }
 
 
@@ -2329,25 +2353,7 @@ sub do_uptime
     #
     return if ( !isControlling() );
 
-    my $seconds=(tied $ACTIVE)->connector->uptime;
-
-    #
-    #  Now parse the seconds into days/hours/minutes/seconds.
-    #
-    my $days = int( $seconds / ( 24 * 60 * 60 ) );
-    my $hours = ( $seconds / ( 60 * 60 ) ) % 24;
-    my $mins  = ( $seconds / 60 ) % 60;
-    my $secs  = $seconds % 60;
-
-
-    #
-    #  Plural days?
-    #
-    my $plural = 's';
-    $plural = '' if ( $days == 1 );
-
-    print sprintf "Guest: %d day%s %02d:%02d:%02d\n",
-      $days, $plural, $hours, $mins, $secs;
+    (tied $ACTIVE)->connector->uptime;
 }
 
 
