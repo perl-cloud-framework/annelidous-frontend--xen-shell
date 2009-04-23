@@ -377,6 +377,12 @@ my %dispatch = (
           "Recover from a backup.",
         info => "Restore files to your system.",
     },
+    "rescue" => {
+        sub => \&do_rescue,
+        help =>
+          "Perform a rescue. Boots into single-user mode.",
+        info => "Boot into single-user rescue mode.",
+    },
     "serial" =>    # Dupe: console
       { sub => \&do_console,
         help =>
@@ -1470,13 +1476,43 @@ sub do_boot
 #    }
 #    else
 #    {
-		print "connector:";
-		print Dumper scalar((tied $ACTIVE)->connector);
+		#print "connector:";
+		#print Dumper scalar((tied $ACTIVE)->connector);
 		(tied $ACTIVE)->connector->boot();
         print "Use 'console' to see the bootup messages.\n";
 #    }
 }
 
+
+sub do_rescue
+{
+    my ($arg) = (@_);
+
+    #
+    #  Is this to be a forced shutdown?
+    #
+    my $console = 0;
+    $console = 1 if ( defined($arg) && ( lc($arg) eq "console" ) );
+
+    #
+    #  Make sure the user has selected an instance
+    # they can control.
+    #
+    return if ( !isControlling() );
+
+    print "Booting instance: $ACTIVE\n";
+
+# TODO: Implement console
+#    if ($console)
+#    {
+#		(tied $ACTIVE)->connector->boot(-console=>{ -tty=>$local_tty });
+#    }
+#    else
+#    {
+		(tied $ACTIVE)->connector->rescue();
+        print "Use 'console' to see the bootup messages.\n";
+#    }
+}
 
 
 =begin doc
