@@ -526,24 +526,17 @@ tie $ACTIVE, "Annelidous::Frontend::XenShell::ActiveHandler", $annelidous;
 # Find the username and homedir of the user who invoked this script.
 # EricW: Changed $REAL_USER_ID to $< as this worked on my systems.
 #
-#my ($USER,undef,undef,undef,undef,undef,undef,undef,$HOME,undef,undef) = \
-#    getpwuid($<);
 my @UENT = getpwuid($<);
 my $USER = $UENT[0];
 my $HOME = $UENT[7];
 
-# Needed to add here with Perl 5.10??? Was okay before...
-#$USER=${$USER};
-
 # For security, we sanity-check the $HOME variable.
 for ($HOME) {
-    /^\s*$/ || \ # Cannot be empty/null/whitespace
-    /\.\./ || \ # No ..'s
-    /^\// || \ # Lets assume this is a unix filesystem
-    die "Bad $HOME"; # Bad wolf... blowing down my $HOME
+	/^\s*$/ || \ # Cannot be empty/null/whitespace
+	/\.\./ || \ # No ..'s
+	/^\// || \ # Lets assume this is a unix filesystem
+	die "Bad HOME: ".$HOME; # Bad wolf... blowing down my $HOME
 }
-
-
 
 #
 # Sanity check our host and user.
@@ -2181,61 +2174,63 @@ sub do_shutdown
     #
     return if ( !isControlling() );
 
+	unless ($force) {
+
     print "Shutting down instance: $ACTIVE\n";
     (tied $ACTIVE)->connector->shutdown;
-
+	}
     #
     #  If we're forcing then we want to make sure it is gone.
     #
     if ($force)
     {
-        print "Waiting to see if the shutdown succeeded.\n";
-
-        my $running = isRunning($ACTIVE);
-        my $count   = 9;
-
-        #
-        #  Sleep for five seconds to see if it worked.
-        #
-        #  Repeat a few times.
-        #
-        print "Waiting: ";
-        while ( ($count) && ($running) )
-        {
-            $running = isRunning($ACTIVE);
-
-            print "$count.. ";
-            sleep(5);
-
-            $count -= 1;
-        }
-        print "\n";
-
-        #
-        #  If it is *still* running then force it.
-        #
-        if ($running)
-        {
-            print "Still running.  Forcing the shutdown.\n";
-
-            #
-            #  Send the sysreqs
-            #
-            do_sysreq("reissuo");
-
-            sleep(2);
+#        print "Waiting to see if the shutdown succeeded.\n";
+#
+#        my $running = isRunning($ACTIVE);
+#        my $count   = 9;
+#
+#        #
+#        #  Sleep for five seconds to see if it worked.
+#        #
+#        #  Repeat a few times.
+#        #
+#        print "Waiting: ";
+#        while ( ($count) && ($running) )
+#        {
+#            $running = isRunning($ACTIVE);
+#
+#            print "$count.. ";
+#            sleep(5);
+#
+#            $count -= 1;
+#        }
+#        print "\n";
+#
+#        #
+#        #  If it is *still* running then force it.
+#        #
+#        if ($running)
+#        {
+#            print "Still running.  Forcing the shutdown.\n";
+#
+#            #
+#            #  Send the sysreqs
+#            #
+#            do_sysreq("reissuo");
+#
+#            sleep(2);
 			(tied $ACTIVE)->connector->destroy;
 
             print "System terminated.\n";
-        }
-        else
-        {
-
-            #
-            #  The shutdown busy-loop worked.
-            #
-            print "Instance terminated\n";
-        }
+#        }
+#        else
+#        {
+#
+#            #
+#            #  The shutdown busy-loop worked.
+#            #
+#            print "Instance terminated\n";
+#        }
     }
 }
 
@@ -2389,7 +2384,8 @@ sub do_uptime
     #
     return if ( !isControlling() );
 
-    (tied $ACTIVE)->connector->uptime;
+    my $ret=(tied $ACTIVE)->connector->uptime;
+	print $ret;
 }
 
 
