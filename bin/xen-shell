@@ -762,7 +762,7 @@ sub sanityCheck
     #
     #
     #@INSTANCES = findInstancesFor($USER);
-	my @DBINSTANCES = $annelidous->search->find_byusername($USER);
+	my @DBINSTANCES = $annelidous->search->find_active_byusername($USER);
 	foreach my $inst (@DBINSTANCES) {
 		#push @INSTANCES, $inst->{username};
 		push @INSTANCES, $inst->{id};
@@ -780,10 +780,10 @@ sub sanityCheck
     #  If the user only has one instance under their control we'll
     # default to controlling that one.
     #
-    if ( scalar(@INSTANCES) == 1 )
-    {
+    #if ( scalar(@INSTANCES) == 1 )
+    #{
         $ACTIVE = $DBINSTANCES[0]->{'id'}; 
-    }
+    #}
 
 }
 
