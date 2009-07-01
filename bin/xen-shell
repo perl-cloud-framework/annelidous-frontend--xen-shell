@@ -532,11 +532,10 @@ my $HOME = $UENT[7];
 
 # For security, we sanity-check the $HOME variable.
 for ($HOME) {
-	/^\s*$/ || \ # Cannot be empty/null/whitespace
-	/\.\./ || \ # No ..'s
-	/^\// || \ # Lets assume this is a unix filesystem
-	die "Bad HOME: ".$HOME; # Bad wolf... blowing down my $HOME
-}
+	if (/^\s*$/ || /\.\./ || /^[^\/]/) {
+		die "Bad HOME: ".$HOME."\n"; # Bad wolf... blowing down my $HOME
+	}
+};
 
 #
 # Sanity check our host and user.
