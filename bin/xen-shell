@@ -2,14 +2,14 @@
 
 =head1 NAME
 
-xen-shell - Provide a console interface to control Xen guests.
+cloud-shell - Provide a console interface to control instances.
 
 =cut
 
 
 =head1 SYNOPSIS
 
-  xen-shell [options]
+  cloud-shell [options]
 
   Options:
 
@@ -23,7 +23,7 @@ xen-shell - Provide a console interface to control Xen guests.
 
 =head1 DESCRIPTION
 
-  xen-shell provides a simple console interface to allow a user to
+  cloud-shell provides a simple console interface to allow a user to
  control a Xen instances which are running upon the local system.
 
   The shell features include:
@@ -44,7 +44,7 @@ xen-shell - Provide a console interface to control Xen guests.
 
 =head1 XEN SETUP
 
-  There are two ways to setup a Xen guest which might be controlled by
+  There are two ways to setup a instance which might be controlled by
  the local user "bob".
 
   The simplest method is to give a Xen instance the name "bob", (i.e.
@@ -53,7 +53,7 @@ xen-shell - Provide a console interface to control Xen guests.
  user may only control a single instance.
 
   The second solution is to add a line such as the following to the
- relevant Xen guest configuration file beneath /etc/xen:
+ relevant instance configuration file beneath /etc/xen:
 
 =for example begin
 
@@ -65,7 +65,7 @@ xen-shell - Provide a console interface to control Xen guests.
  shell to be used by the three local users "bob", "steve", and "chris" -
  and each of them will be able to work with that host.
 
-  If a user is allowed to control more than one Xen guest upon the
+  If a user is allowed to control more than one instance upon the
  current host then the two commands "control" and "list" will be made
  available to them.
 
@@ -89,15 +89,15 @@ xen-shell - Provide a console interface to control Xen guests.
 
 =over 8
 
-=item Use /etc/xen-shell/xen-shell.conf
+=item Use /etc/cloud-shell/xen-shell.conf
 
 =item Use a per-domain blacklist
 
 =back
 
 
-  To disable a command globally, amongst all Xen guests upon a host,
- you can simply add the following to xen-shell.conf:
+  To disable a command globally, amongst all instances upon a host,
+ you can simply add the following to cloud-shell.conf:
 
 =for example begin
 
@@ -129,7 +129,7 @@ xen-shell - Provide a console interface to control Xen guests.
   The reimage command itself does nothing, it merely executes an
   administrator-defined reimaging script.
   
-  xen-shell ships with an example script, xm-reimage, which expects a
+  cloud-shell ships with an example script, xm-reimage, which expects a
   script "image.sh" existing in the user's home directory, it is assumed
   that you will write your own script - perhaps to invoke "xen-create-image"
   to do the real job.
@@ -159,7 +159,7 @@ xen-shell - Provide a console interface to control Xen guests.
       --dist=etch --admin=$user
    else
 
-      echo "IP address not found for guest $host - aborting"
+      echo "IP address not found for instance $host - aborting"
 
    fi
 
@@ -204,12 +204,12 @@ xen-shell - Provide a console interface to control Xen guests.
 =head1 BANDWIDTH TRACKING
 
   If you've got the 'vnstat' tool installed upon your host and the
- primary network interface of your Xen guest is given the same name
- as that of the guest you may see the bandwidth used via the 'bandwidth'
+ primary network interface of your instance is given the same name
+ as that of the instance you may see the bandwidth used via the 'bandwidth'
  command.
 
   To change the name of your interface you can configure your
- Xen guest with something like this in the configuration file:
+ instance with something like this in the configuration file:
 
 =for example begin
 
@@ -217,11 +217,11 @@ xen-shell - Provide a console interface to control Xen guests.
 
 =for example end
 
-  Now when you run "ifconfig -a" upon the dom0 you'll see the guest
+  Now when you run "ifconfig -a" upon the dom0 you'll see the instance
  has an interface named 'skx'.
 
   If the system cannot find a database for bandwidth tracking of
- a particular guest then the bandwidth command will be disabled.
+ a particular instance then the bandwidth command will be disabled.
 
 =cut
 
@@ -300,6 +300,12 @@ my %xenBlacklists;
 #
 #
 my %dispatch = (
+    "archive" => {
+        sub => \&do_archive,
+        help =>
+          "Perform an archive of the instance's block device(s)",
+        info => "Archive instance",
+    },
     "bandwidth" => { sub  => \&do_bandwidth,
                      args => "[hourly|daily|weekly|monthly]",
                      help => "Show your bandwidth usage.",
@@ -308,21 +314,56 @@ my %dispatch = (
     "boot" => {
         sub => \&do_boot,
         help =>
-          "Start the Xen guest, if it is not running.\nIf the 'console' parameter is used then show the console immediately..",
+          "Start the instance, if it is not running.\nIf the 'console' parameter is used then show the console immediately..",
         args => "[console]",
-        info => "Boot the Xen guest.",
+        info => "Boot the instance.",
     },
+    "boot32" => {
+        sub => \&do_boot32,
+        help =>
+          "Start the instance with a 32-bit kernel,  if it is not running.\nIf the 'console' parameter is used then show the console immediately..",
+        args => "[console]",
+        info => "Boot the instance (32-bit).",
+    },
+    "boot-grub32" => {
+        sub => \&do_bootgrub32,
+        help =>
+          "Start the instance from grub, if configured in the instance.\nIf the 'console' parameter is used then show the console immediately..",
+        args => "[console]",
+        info => "Boot the instance with grub.",
+    },
+    "boot-grub" => {
+        sub => \&do_bootgrub,
+        help =>
+          "Start the instance from grub, if configured in the instance.\nIf the 'console' parameter is used then show the console immediately..",
+        args => "[console]",
+        info => "Boot the instance with grub.",
+    },
+    "boot-part" => {
+        sub => \&do_bootpart,
+        help =>
+          "Start the instance from a partitioned filesystem.\n Will fail if disk is not partitioned.\nIf the 'console' parameter is used then show the console immediately..",
+        args => "[console]",
+        info => "Boot the instance from first partition.",
+    },
+#    "bootcd" => {
+#        sub => \&do_bootcd,
+#        help =>
+#          "Start the instance from a specified ISO image.",
+#        args => "[console]",
+#        info => "Boot the instance.",
+#    },
     "control" => {
         sub => \&do_control,
         help =>
           "Take control of a particular instance.\nThis command makes all subsequent operations apply to the Xen instance specified.",
-        info => "Specify which Xen guest to control.",
+        info => "Specify which instance to control.",
     },
     "console" => {
         sub => \&do_console,
         help =>
           "Connect to the serial console of the Xen instance using GNU Screen.\n\nTo exit the serial prompt type 'Ctrl+]'\nYou may instead exit screen with 'Ctrl+a k', or 'Ctrl+a d'.",
-        info => "Gain access to a Xen guest via the serial console.",
+        info => "Gain access to a instance via the serial console.",
     },
     "exit" => { sub  => \&do_exit,
                 help => "Exit the shell.",
@@ -347,7 +388,7 @@ my %dispatch = (
                 },
     "pause" => { sub  => \&do_pause,
                  help => "Pause your instance.",
-                 info => "This will pause the Xen guest.",
+                 info => "This will pause the instance.",
                },
     "quit" =>    # Dupe: exit
       { sub  => \&do_exit,
@@ -355,8 +396,8 @@ my %dispatch = (
         info => "Exit this shell.",
       },
     "reboot" => { sub  => \&do_reboot,
-                  help => "Reboot the Xen guest.",
-                  info => "Reboot the Xen guest.",
+                  help => "Reboot the instance.",
+                  info => "Reboot the instance.",
                 },
     "rdns" => {
         sub  => \&do_rdns,
@@ -368,7 +409,7 @@ my %dispatch = (
     "reimage" => {
         sub => \&do_reimage,
         help =>
-          "Erase a Xen guest and reinitialise it to a fresh installation of Sarge.",
+          "Erase a instance and reinitialise it to a fresh installation.",
         info => "Reset your system to a pristine installation.",
     },
     "restore" => {
@@ -387,14 +428,14 @@ my %dispatch = (
       { sub => \&do_console,
         help =>
           "Connect to the serial console of the Xen instance using GNU Screen.\n\nTo exit the serial prompt type 'Ctrl+]'\nYou may instead exit screen with 'Ctrl+a k', or 'Ctrl+a d'.",
-        info => "Gain access to the Xen guest via the serial console.",
+        info => "Gain access to the instance via the serial console.",
       },
     "shutdown" => {
         sub  => \&do_shutdown,
         args => "[force]",
         help =>
-          "Shutdown the Xen guest." . ($CONFIG{'allow_force_shutdown'}) ? "\nIf the 'force' parameter is used then we'll forcibly terminate." : "",
-        info => "Shutdown the Xen guest.",
+          "Shutdown the instance." . ($CONFIG{'allow_force_shutdown'}) ? "\nIf the 'force' parameter is used then we'll forcibly terminate." : "",
+        info => "Shutdown the instance.",
     },
     "sshkey" => {
         sub  => \&do_sshkey,
@@ -404,16 +445,16 @@ my %dispatch = (
         info => "Configure SSH authentication.",
     },
     "status" => { sub  => \&do_status,
-                  help => "Show whether the Xen guest is running or not.",
-                  info => "Show the status of the Xen guest.",
+                  help => "Show whether the instance is running or not.",
+                  info => "Show the status of the instance.",
                 },
     "author" => { sub => \&do_author, },
     "sysreq" => {
         sub  => \&do_sysreq,
         args => "[string]",
         help =>
-          "Send a 'sysreq' keystroke to the guest.\nThis allows you to try to cleanly shutdown a hung instance, for example.",
-        info => "Send a 'sysreq' keystroke to the guest.",
+          "Send a 'sysreq' keystroke to the instance.\nThis allows you to try to cleanly shutdown a hung instance, for example.",
+        info => "Send a 'sysreq' keystroke to the instance.",
     },
     "top" => {
             sub  => \&do_top,
@@ -422,13 +463,13 @@ my %dispatch = (
     },
     "unpause" => { sub  => \&do_unpause,
                    help => "Unpause your instance, and start it running again.",
-                   info => "This will unpause the Xen guest.",
+                   info => "This will unpause the instance.",
                  },
     "uptime" => {
             sub  => \&do_uptime,
-            help => "Show the uptime of the host & guest systems.",
+            help => "Show the uptime of the host & instance systems.",
             info =>
-              "Show the uptime information of your guest system and this host.",
+              "Show the uptime information of your instance system and this host.",
     },
     "version" => { sub  => \&do_version,
                    help => "Show the version of this shell, and of Xen.",
@@ -642,7 +683,7 @@ sub parseCommandLineArguments
         }
         else
         {
-            print "xen-shell v$RELEASE\n";
+            print "cloud-shell v$RELEASE\n";
         }
         exit;
     }
@@ -710,7 +751,7 @@ sub parseConfigurationFile
 
   Sanity check that we can load the Perl modules we require.
 
-  Also make sure the current user has a Xen guest on this host machine.
+  Also make sure the current user has a instance on this host machine.
 
   Note that if we detect errors we will sleep for a while after displaying
  them - this is to allow users of PuTTY to see them before they are logged
@@ -754,7 +795,7 @@ sub sanityCheck
     }
 
     #
-    #  Test that the user has a Xen guest present upon this host.
+    #  Test that the user has a instance present upon this host.
     #
     #  We parse each file beneath the Xen configuration directory and
     # look for suitable instances.
@@ -769,7 +810,7 @@ sub sanityCheck
     #@INSTANCES = $annelidous->search->find_byusername($USER);
     if ( !@INSTANCES || scalar(@INSTANCES) < 1 )
     {
-        print "User '$USER' doesn't have a Xen guest on this host.\n";
+        print "User '$USER' doesn't have a instance on this host.\n";
         print "Aborting\n";
         sleep 5;
         exit;
@@ -898,7 +939,7 @@ sub findInstancesFor
         }
 
         #
-        #  Store the blacklist for the given guest name.
+        #  Store the blacklist for the given instance name.
         #
         if ( ( $settings{ 'name' } ) && ( $settings{ 'xen_shell_blacklist' } ) )
         {
@@ -918,7 +959,7 @@ sub findInstancesFor
 
    $CONFIG{'pattern'}
 
-  Please update /etc/xen-shell/xen-shell.conf
+  Please update /etc/cloud-shell/xen-shell.conf
 
 EOF
         exit;
@@ -1017,8 +1058,8 @@ EOF
     - We remove "vnstat" if there is no bandwidth accounting.
     - We remove "rdns" if ~/ips.txt is missing or non-writable.
     - We remove "passwd" if ~/.ssh/authorized_keys is present and non-empty.
-    - We remove "list" + "control" if the user can only access one Xen guest.
-    - We remove any command blacklisted in /etc/xen-shell/xen-shell.conf
+    - We remove "list" + "control" if the user can only access one instance.
+    - We remove any command blacklisted in /etc/cloud-shell/xen-shell.conf
 
 =end doc
 
@@ -1118,7 +1159,7 @@ sub showBanner
     }
     else
     {
-        print "xen-shell v$RELEASE - type 'help' for help.\n";
+        print "cloud-shell v$RELEASE - type 'help' for help.\n";
     }
 }
 
@@ -1137,7 +1178,7 @@ sub showBanner
 
 sub createTerminal
 {
-    my $term = new Term::ReadLine 'xen-shell';
+    my $term = new Term::ReadLine 'cloud-shell';
 
     #
     # Process our dispatch table to determine which commands
@@ -1181,7 +1222,7 @@ sub createTerminal
 
 =begin doc
 
-  If the user has a history present in ~/.xen-shell load it up.
+  If the user has a history present in ~/.cloud-shell load it up.
 
 =end doc
 
@@ -1194,7 +1235,7 @@ sub loadHistory
     #
     #  The name of the history file.
     #
-    my $hist = $CONFIG{ 'history' } || ".xen-shell";
+    my $hist = $CONFIG{ 'history' } || ".cloud-shell";
 
     #
     #  Load the file, if it exists, from the home directory.
@@ -1324,19 +1365,19 @@ sub getPrompt
 {
 
     #
-    #  If there is only one instance then "xen-shell>".
+    #  If there is only one instance then "cloud-shell>".
     #
-    return "xen-shell> " if ( scalar(@INSTANCES) == 1 );
+    return "cloud-shell> " if ( scalar(@INSTANCES) == 1 );
 
     #
     #  If there is an active instance then include that in the prompt.
     #
-    return "xen-shell[$ACTIVE]> " if ( length($ACTIVE) );
+    return "cloud-shell[$ACTIVE]> " if ( length($ACTIVE) );
 
     #
     #  Otherwise the default.
     #
-    return "xen-shell> ";
+    return "cloud-shell> ";
 }
 
 
@@ -1437,13 +1478,162 @@ sub do_bandwidth
 
 =begin doc
 
-  Boot the Xen guest instance.
+  Boot the instance instance.
 
 =end doc
 
 =cut
 
 sub do_boot
+{
+    my ($arg) = (@_);
+
+    #
+    #  Is this to be a forced shutdown?
+    #
+    my $console = 0;
+    $console = 1 if ( defined($arg) && ( lc($arg) eq "console" ) );
+
+    #
+    #  Make sure the user has selected an instance
+    # they can control.
+    #
+    return if ( !isControlling() );
+
+    print "Booting instance: $ACTIVE\n";
+
+# TODO: Implement console
+    if ($console)
+    {
+		#(tied $ACTIVE)->connector->boot(-console=>{ -tty=>$local_tty });
+		(tied $ACTIVE)->connector->boot();
+		&do_console;
+    }
+    else
+    {
+		#print "connector:";
+		#print Dumper scalar((tied $ACTIVE)->connector);
+		(tied $ACTIVE)->connector->boot();
+        print "Use 'console' to see the bootup messages.\n";
+    }
+}
+
+=begin doc
+
+  Boot the instance instance.
+
+=end doc
+
+=cut
+
+sub do_bootpart
+{
+    my ($arg) = (@_);
+
+    #
+    #  Is this to be a forced shutdown?
+    #
+    my $console = 0;
+    $console = 1 if ( defined($arg) && ( lc($arg) eq "console" ) );
+
+    #
+    #  Make sure the user has selected an instance
+    # they can control.
+    #
+    return if ( !isControlling() );
+
+    print "Booting instance: $ACTIVE\n";
+
+# TODO: Implement console
+    if ($console)
+    {
+		#(tied $ACTIVE)->connector->boot(-console=>{ -tty=>$local_tty });
+		(tied $ACTIVE)->connector->boot();
+		&do_console;
+    }
+    else
+    {
+		#print "connector:";
+		#print Dumper scalar((tied $ACTIVE)->connector);
+		(tied $ACTIVE)->connector->bootpart();
+        print "Use 'console' to see the bootup messages.\n";
+    }
+}
+
+
+sub do_bootgrub
+{
+    my ($arg) = (@_);
+
+    #
+    #  Is this to be a forced shutdown?
+    #
+    my $console = 0;
+    $console = 1 if ( defined($arg) && ( lc($arg) eq "console" ) );
+
+    #
+    #  Make sure the user has selected an instance
+    # they can control.
+    #
+    return if ( !isControlling() );
+
+    print "Booting instance: $ACTIVE\n";
+
+# TODO: Implement console
+    if ($console)
+    {
+#		(tied $ACTIVE)->connector->boot(-console=>{ -tty=>$local_tty });
+
+		(tied $ACTIVE)->connector->bootgrub();
+		&do_console;
+    }
+    else
+    {
+		#print "connector:";
+		#print Dumper scalar((tied $ACTIVE)->connector);
+		(tied $ACTIVE)->connector->bootgrub();
+        print "Use 'console' to see the bootup messages.\n";
+    }
+}
+
+sub do_bootgrub32
+{
+    my ($arg) = (@_);
+
+    #
+    #  Is this to be a forced shutdown?
+    #
+    my $console = 0;
+    $console = 1 if ( defined($arg) && ( lc($arg) eq "console" ) );
+
+    #
+    #  Make sure the user has selected an instance
+    # they can control.
+    #
+    return if ( !isControlling() );
+
+    print "Booting instance: $ACTIVE\n";
+
+# TODO: Implement console
+    if ($console)
+    {
+#		(tied $ACTIVE)->connector->boot(-console=>{ -tty=>$local_tty });
+
+		(tied $ACTIVE)->connector->bootgrub32();
+		&do_console;
+    }
+    else
+    {
+		#print "connector:";
+		#print Dumper scalar((tied $ACTIVE)->connector);
+		(tied $ACTIVE)->connector->bootgrub();
+        print "Use 'console' to see the bootup messages.\n";
+    }
+}
+
+
+
+sub do_boot32
 {
     my ($arg) = (@_);
 
@@ -1470,10 +1660,44 @@ sub do_boot
 #    {
 		#print "connector:";
 		#print Dumper scalar((tied $ACTIVE)->connector);
-		(tied $ACTIVE)->connector->boot();
+		(tied $ACTIVE)->connector->boot32();
         print "Use 'console' to see the bootup messages.\n";
 #    }
 }
+
+sub do_bootcd
+{
+    my ($arg) = (@_);
+
+    #
+    #  Is this to be a forced shutdown?
+    #
+    my $console = 0;
+    $console = 1 if ( defined($arg) && ( lc($arg) eq "console" ) );
+
+    #
+    #  Make sure the user has selected an instance
+    # they can control.
+    #
+    return if ( !isControlling() );
+
+    print "Booting instance: $ACTIVE\n";
+
+# TODO: Implement console
+#    if ($console)
+#    {
+#		(tied $ACTIVE)->connector->boot(-console=>{ -tty=>$local_tty });
+#    }
+#    else
+#    {
+		#print "connector:";
+		#print Dumper scalar((tied $ACTIVE)->connector);
+		(tied $ACTIVE)->connector->bootcd();
+        print "Use 'console' to see the bootup messages.\n";
+#    }
+}
+
+
 
 
 sub do_rescue
@@ -1509,7 +1733,7 @@ sub do_rescue
 
 =begin doc
 
-  Connect to the serial console of the running Xen guest.
+  Connect to the serial console of the running instance.
 
 =end doc
 
@@ -1611,7 +1835,7 @@ sub do_exit
     #
     #  The name of the history file, inside the home directory.
     #
-    my $hist = $CONFIG{ 'history' } || ".xen-shell";
+    my $hist = $CONFIG{ 'history' } || ".cloud-shell";
     my $file = $ENV{ 'HOME' } . "/" . $hist;
 
     #
@@ -1681,7 +1905,7 @@ sub do_help
     }
     else
     {
-        print "xen-shell v$RELEASE\n";
+        print "cloud-shell v$RELEASE\n";
     }
     print "The following commands are available within this shell:\n\n";
 
@@ -1690,6 +1914,10 @@ sub do_help
     #
     foreach my $entry ( sort keys %dispatch )
     {
+		# Skip entries starting with -, these are hidden,
+		# undocumented features (generally still in testing)
+		next if ($entry =~ /^-/);
+
         my $hash = $dispatch{ $entry };
 
         print sprintf( "%10s - %s\n", $entry, $hash->{ 'info' } );
@@ -1784,7 +2012,7 @@ sub do_password
 
 =begin doc
 
-  This will pause the Xen guest.
+  This will pause the instance.
 
 =end doc
 
@@ -1808,7 +2036,7 @@ sub do_pause
 
 =begin doc
 
-  Reboot the Xen guest.
+  Reboot the instance.
 
 =end doc
 
@@ -1852,7 +2080,7 @@ sub do_restore
     #
     if ( isRunning($ACTIVE) )
     {
-        print "Xen guest running.\n";
+        print "Instance running.\n";
         print "Please run 'shutdown' first\n";
         return;
     }
@@ -1865,14 +2093,53 @@ sub do_restore
     #
     #  Run the xm-reimage
     #
-	(tied $ACTIVE)->connector->reimage();
-	print "You may now boot your installation\n";
+	(tied $ACTIVE)->connector->restore();
+	print "Your instance has been restored to its prior state.\n";
 }
 
 =begin doc
 
+ Backup the image.
+
+=end doc
+
+=cut
+
+sub do_archive
+{
+    #
+    #  Make sure the user has selected an instance
+    # they can control.
+    #
+    return if ( !isControlling() );
+
+    #
+    # See if the instance is running
+    #
+    if ( isRunning($ACTIVE) )
+    {
+        print "Instance running. Proceeding.\n";
+	} else {
+        print "Instance not running, please 'boot' first\n";
+        return;
+    }
+
+    print "Archiving instance: $ACTIVE\n\n";
+	print "NOTE: Your instance has been paused and will resume when the archive is complete.\n";
+	print "\tThis archive should take approximately 05-60 minutes.\n\n";
+
+    #
+    #  Run the xm-reimage
+    #
+	(tied $ACTIVE)->connector->archive();
+	print "Your instance has been resumed.\n";
+}
+
+
+=begin doc
+
   Allow the machine to be reinitialised to a fresh installation of
- their Xen guest.
+ their instance.
 
 =end doc
 
@@ -1893,7 +2160,7 @@ sub do_reimage
     #
     if ( isRunning($ACTIVE) )
     {
-        print "Xen guest running.\n";
+        print "instance running.\n";
         print "Please run 'shutdown' first\n";
         return;
     }
@@ -1907,7 +2174,7 @@ sub do_reimage
     #  Run the xm-reimage
     #
 	(tied $ACTIVE)->connector->reimage();
-	print "You may now boot your installation\n";
+	print "You may now boot your instance\n";
 }
 
 =begin doc
@@ -2237,9 +2504,9 @@ sub do_shutdown
 
 =begin doc
 
-  Show status of the Xen guest:  Running/Shutdown
+  Show status of the instance:  Running/Shutdown
 
-  If the guest is running then show its uptime too.
+  If the instance is running then show its uptime too.
 
 =end doc
 
@@ -2344,7 +2611,7 @@ sub do_top
 
 =begin doc
 
-  This will unpause the Xen guest.
+  This will unpause the instance.
 
 =end doc
 
@@ -2368,7 +2635,7 @@ sub do_unpause
 
 =begin doc
 
-  Show uptime of the guest.
+  Show uptime of the instance.
 
 =end doc
 
@@ -2405,7 +2672,7 @@ sub do_version
     }
     else
     {
-        print "xen-shell v$RELEASE";
+        print "cloud-shell v$RELEASE";
     }
     print "\n";
 }
