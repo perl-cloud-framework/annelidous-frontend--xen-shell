@@ -498,8 +498,8 @@ my %lookupTable;
 #my $asearch=new Annelidous::Search(subclass=>'Annelida::Search::Ubersmith');
 use Data::Dumper;
 use DBI;
-require Annelidous::Search::Ubersmith;
-my $anneSearch=new Annelidous::Search::Ubersmith(
+require GrokThis::Cloud::Search;
+my $anneSearch=new Grokthis::Cloud::Search(
 	-dbh=>DBI->connect(
 		"DBI:".$CONFIG{'annelidous-search-dbdriver'}.":".
 		"host=".$CONFIG{'annelidous-search-dbhost'}.";".
