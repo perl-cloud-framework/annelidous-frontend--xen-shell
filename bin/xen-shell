@@ -499,7 +499,7 @@ my %lookupTable;
 use Data::Dumper;
 use DBI;
 require GrokThis::Cloud::Search;
-my $anneSearch=new Grokthis::Cloud::Search(
+my $anneSearch=GrokThis::Cloud::Search->new(
 	-dbh=>DBI->connect(
 		"DBI:".$CONFIG{'annelidous-search-dbdriver'}.":".
 		"host=".$CONFIG{'annelidous-search-dbhost'}.";".
