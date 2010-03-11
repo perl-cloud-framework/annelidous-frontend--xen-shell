@@ -256,7 +256,9 @@ use Pod::Usage;
 
 use Crypt::PasswdMD5 qw(unix_md5_crypt);
 
-BEGIN { push @INC,'/root/cloud/lib/'; }
+BEGIN {
+	push @INC,'/opt/cloud/lib/';
+}
 use Annelidous::Connector::Xen;
 use Annelidous::Search;
 use Annelidous::Frontend::XenShell::ActiveHandler;
@@ -318,41 +320,6 @@ my %dispatch = (
         args => "[console]",
         info => "Boot the instance.",
     },
-    "boot32" => {
-        sub => \&do_boot32,
-        help =>
-          "Start the instance with a 32-bit kernel,  if it is not running.\nIf the 'console' parameter is used then show the console immediately..",
-        args => "[console]",
-        info => "Boot the instance (32-bit).",
-    },
-    "boot-grub32" => {
-        sub => \&do_bootgrub32,
-        help =>
-          "Start the instance from grub, if configured in the instance.\nIf the 'console' parameter is used then show the console immediately..",
-        args => "[console]",
-        info => "Boot the instance with grub.",
-    },
-    "boot-grub" => {
-        sub => \&do_bootgrub,
-        help =>
-          "Start the instance from grub, if configured in the instance.\nIf the 'console' parameter is used then show the console immediately..",
-        args => "[console]",
-        info => "Boot the instance with grub.",
-    },
-    "boot-part" => {
-        sub => \&do_bootpart,
-        help =>
-          "Start the instance from a partitioned filesystem.\n Will fail if disk is not partitioned.\nIf the 'console' parameter is used then show the console immediately..",
-        args => "[console]",
-        info => "Boot the instance from first partition.",
-    },
-#    "bootcd" => {
-#        sub => \&do_bootcd,
-#        help =>
-#          "Start the instance from a specified ISO image.",
-#        args => "[console]",
-#        info => "Boot the instance.",
-#    },
     "control" => {
         sub => \&do_control,
         help =>
@@ -480,6 +447,22 @@ my %dispatch = (
                 help => "Show the user you're connected as.",
                 info => "Show the user you're connected to the host system as.",
     },
+	"setpref" => {
+				sub => \&do_setpref,
+				help => "Set configuration variables\n".
+					"cpu_arch\t32 or 64-bit operation (64)\n".
+					"autoheal\tautomatically restore system on powerloss (true)"
+				,
+				info => "Set configuration variables."
+	},
+	"getpref" => {
+				sub => \&do_getpref,
+				help => "Get configuration variables\n".
+					"cpu_arch\t32 or 64-bit operation (64)\n".
+					"autoheal\tautomatically restore system on powerloss (true)"
+				,
+				info => "Get configuration variables."
+	}
 );
 
 #
@@ -517,26 +500,25 @@ use Data::Dumper;
 use DBI;
 require Annelidous::Search::Ubersmith;
 my $anneSearch=new Annelidous::Search::Ubersmith(
-        -dbh=>DBI->connect(
-            "DBI:".$CONFIG{'annelidous-search-dbdriver'}.":".
-            "host=".$CONFIG{'annelidous-search-dbhost'}.";".
-            "database=".$CONFIG{'annelidous-search-dbname'}.";",
-            $CONFIG{'annelidous-search-dbuser'},
-            $CONFIG{'annelidous-search-dbpass'})
-    );
+	-dbh=>DBI->connect(
+		"DBI:".$CONFIG{'annelidous-search-dbdriver'}.":".
+		"host=".$CONFIG{'annelidous-search-dbhost'}.";".
+		"database=".$CONFIG{'annelidous-search-dbname'}.";",
+		$CONFIG{'annelidous-search-dbuser'},
+		$CONFIG{'annelidous-search-dbpass'})
+);
 
-#require Annelidous::Connector::Xen;
-#my $anneConnector=new Annelidous::Connector::Xen;
 
 #
 # Annelidous
 #
 require Annelidous::Frontend;
 require Annelidous::Connector::Xen;
+require GrokThis::Cloud::Storage;
 my $annelidous=new Annelidous::Frontend(
 	-search_module=>$anneSearch,
-	#-accounting_module=>$anneAccount,
-	-connector_module=>Annelidous::Connector::Xen #$anneConnector
+	-connector_module=>Annelidous::Connector::Xen,
+	-storage_module=>GrokThis::Cloud::Storage
 );
 
 #
@@ -1520,219 +1502,6 @@ sub do_boot
 
 =begin doc
 
-  Boot the instance instance.
-
-=end doc
-
-=cut
-
-sub do_bootpart
-{
-    my ($arg) = (@_);
-
-    #
-    #  Is this to be a forced shutdown?
-    #
-    my $console = 0;
-    $console = 1 if ( defined($arg) && ( lc($arg) eq "console" ) );
-
-    #
-    #  Make sure the user has selected an instance
-    # they can control.
-    #
-    return if ( !isControlling() );
-
-    print "Booting instance: $ACTIVE\n";
-
-# TODO: Implement console
-    if ($console)
-    {
-		#(tied $ACTIVE)->connector->boot(-console=>{ -tty=>$local_tty });
-		(tied $ACTIVE)->connector->boot();
-		&do_console;
-    }
-    else
-    {
-		#print "connector:";
-		#print Dumper scalar((tied $ACTIVE)->connector);
-		(tied $ACTIVE)->connector->bootpart();
-        print "Use 'console' to see the bootup messages.\n";
-    }
-}
-
-
-sub do_bootgrub
-{
-    my ($arg) = (@_);
-
-    #
-    #  Is this to be a forced shutdown?
-    #
-    my $console = 0;
-    $console = 1 if ( defined($arg) && ( lc($arg) eq "console" ) );
-
-    #
-    #  Make sure the user has selected an instance
-    # they can control.
-    #
-    return if ( !isControlling() );
-
-    print "Booting instance: $ACTIVE\n";
-
-# TODO: Implement console
-    if ($console)
-    {
-#		(tied $ACTIVE)->connector->boot(-console=>{ -tty=>$local_tty });
-
-		(tied $ACTIVE)->connector->bootgrub();
-		&do_console;
-    }
-    else
-    {
-		#print "connector:";
-		#print Dumper scalar((tied $ACTIVE)->connector);
-		(tied $ACTIVE)->connector->bootgrub();
-        print "Use 'console' to see the bootup messages.\n";
-    }
-}
-
-sub do_bootgrub32
-{
-    my ($arg) = (@_);
-
-    #
-    #  Is this to be a forced shutdown?
-    #
-    my $console = 0;
-    $console = 1 if ( defined($arg) && ( lc($arg) eq "console" ) );
-
-    #
-    #  Make sure the user has selected an instance
-    # they can control.
-    #
-    return if ( !isControlling() );
-
-    print "Booting instance: $ACTIVE\n";
-
-# TODO: Implement console
-    if ($console)
-    {
-#		(tied $ACTIVE)->connector->boot(-console=>{ -tty=>$local_tty });
-
-		(tied $ACTIVE)->connector->bootgrub32();
-		&do_console;
-    }
-    else
-    {
-		#print "connector:";
-		#print Dumper scalar((tied $ACTIVE)->connector);
-		(tied $ACTIVE)->connector->bootgrub();
-        print "Use 'console' to see the bootup messages.\n";
-    }
-}
-
-
-
-sub do_boot32
-{
-    my ($arg) = (@_);
-
-    #
-    #  Is this to be a forced shutdown?
-    #
-    my $console = 0;
-    $console = 1 if ( defined($arg) && ( lc($arg) eq "console" ) );
-
-    #
-    #  Make sure the user has selected an instance
-    # they can control.
-    #
-    return if ( !isControlling() );
-
-    print "Booting instance: $ACTIVE\n";
-
-# TODO: Implement console
-#    if ($console)
-#    {
-#		(tied $ACTIVE)->connector->boot(-console=>{ -tty=>$local_tty });
-#    }
-#    else
-#    {
-		#print "connector:";
-		#print Dumper scalar((tied $ACTIVE)->connector);
-		(tied $ACTIVE)->connector->boot32();
-        print "Use 'console' to see the bootup messages.\n";
-#    }
-}
-
-sub do_bootcd
-{
-    my ($arg) = (@_);
-
-    #
-    #  Is this to be a forced shutdown?
-    #
-    my $console = 0;
-    $console = 1 if ( defined($arg) && ( lc($arg) eq "console" ) );
-
-    #
-    #  Make sure the user has selected an instance
-    # they can control.
-    #
-    return if ( !isControlling() );
-
-    print "Booting instance: $ACTIVE\n";
-
-# TODO: Implement console
-#    if ($console)
-#    {
-#		(tied $ACTIVE)->connector->boot(-console=>{ -tty=>$local_tty });
-#    }
-#    else
-#    {
-		#print "connector:";
-		#print Dumper scalar((tied $ACTIVE)->connector);
-		(tied $ACTIVE)->connector->bootcd();
-        print "Use 'console' to see the bootup messages.\n";
-#    }
-}
-
-
-
-
-sub do_rescue
-{
-    my ($arg) = (@_);
-
-    #
-    #  Is this to be a forced shutdown?
-    #
-    my $console = 0;
-    $console = 1 if ( defined($arg) && ( lc($arg) eq "console" ) );
-
-    #
-    #  Make sure the user has selected an instance
-    # they can control.
-    #
-    return if ( !isControlling() );
-
-    print "Booting instance: $ACTIVE\n";
-
-# TODO: Implement console
-#    if ($console)
-#    {
-#		(tied $ACTIVE)->connector->boot(-console=>{ -tty=>$local_tty });
-#    }
-#    else
-#    {
-		(tied $ACTIVE)->connector->rescue();
-        print "Use 'console' to see the bootup messages.\n";
-#    }
-}
-
-
-=begin doc
-
   Connect to the serial console of the running instance.
 
 =end doc
@@ -2691,6 +2460,55 @@ sub do_whoami
 {
     print $USER . "\n";
 }
+
+sub do_setpref
+{
+    my ($args) = (@_);
+
+    if ( !defined($args) || ( !length($args) ) )
+    {
+print <<EOF
+Set configuration variables.
+Documentation forthcoming...
+EOF
+    }
+
+    #
+    #  We have an agument.  Assume it is of the form:
+    #
+    #  set [var] [val]
+	#  also allowing
+	#  set var=val
+	#  set var:val
+    #
+    my ( $var, $val ) = split( /[ :=\t]/, $args, 2 );
+
+	unless (defined($val)) {
+		print "No value specified.\n";
+		return;
+	}
+
+	my @allowedvars=(
+		'autoheal',
+		'cpu_arch',
+		'boot_method'
+	);
+	my %avarhash;
+	@avarhash{@allowedvars}=();
+	if (exists $avarhash{$var}) {
+		(tied $ACTIVE)->vm->setuvar($var, $val);
+	} else {
+		print "Illegal variable specified.";
+	}
+}
+
+sub do_getpref
+{
+	my $pref=(tied $ACTIVE)->vm->getuvar();
+	print Dumper $pref;
+}
+
+
 
 
 #
