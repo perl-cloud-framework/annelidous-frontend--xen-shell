@@ -232,6 +232,10 @@ cloud-shell - Provide a console interface to control instances.
  --
  http://www.steve.org.uk/
 
+ Eric
+ --
+ http://www.grokthis.net/
+
 =cut
 
 
@@ -2522,18 +2526,23 @@ END
 }
 
 
-
 =head1 AUTHOR
 
  Steve
  --
  http://www.steve.org.uk/
 
+ Eric
+ --
+ http://www.grokthis.net/
+
 =cut
+
 
 =head1 LICENSE
 
-Copyright (c) 2005-2006 by Steve Kemp.  All rights reserved.
+xen-shell Copyright (c) 2005-2007 by Steve Kemp.  All rights reserved.
+cloud-shell (c) 2006-2010 by Eric Windisch. All rights reserved.
 
 This module is free software;
 you can redistribute it and/or modify it under
@@ -2541,3 +2550,4 @@ the same terms as Perl itself.
 The LICENSE file contains the full text of the license.
 
 =cut
+
