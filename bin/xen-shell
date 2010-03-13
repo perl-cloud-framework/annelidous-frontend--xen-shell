@@ -237,7 +237,8 @@ cloud-shell - Provide a console interface to control instances.
 
 =head1 LICENSE
 
-Copyright (c) 2005-2007 by Steve Kemp.  All rights reserved.
+xen-shell Copyright (c) 2005-2007 by Steve Kemp.  All rights reserved.
+cloud-shell (c) 2006-2010 by Eric Windisch. All rights reserved.
 
 This module is free software;
 you can redistribute it and/or modify it under
@@ -1403,7 +1404,8 @@ sub isRunning
 
 sub do_author
 {
-    print "Steve Kemp <steve\@steve.org.uk>\n";
+    print "Eric Windisch <eric\@grokthis.net>\n";
+    print "Forked from xen-shell by Steve Kemp <steve\@steve.org.uk>\n";
 }
 
 
