@@ -451,16 +451,15 @@ my %dispatch = (
 				sub => \&do_setpref,
 				help => "Set configuration variables\n".
 					"cpu_arch\t32 or 64-bit operation (64)\n".
-					"autoheal\tautomatically restore system on powerloss (true)"
+					"autoheal\tautomatically restore system on powerloss (true)\n".
+					"boot_method\tmethod to boot your instance (pv)\n".
+					"disk_namespace\tdisk naming method (scsi)\n"
 				,
 				info => "Set configuration variables."
 	},
 	"getpref" => {
 				sub => \&do_getpref,
-				help => "Get configuration variables\n".
-					"cpu_arch\t32 or 64-bit operation (64)\n".
-					"autoheal\tautomatically restore system on powerloss (true)"
-				,
+				help => "Get configuration variables",
 				info => "Get configuration variables."
 	}
 );
@@ -2491,7 +2490,8 @@ EOF
 	my @allowedvars=(
 		'autoheal',
 		'cpu_arch',
-		'boot_method'
+		'boot_method',
+		'disk_namespace'
 	);
 	my %avarhash;
 	@avarhash{@allowedvars}=();
