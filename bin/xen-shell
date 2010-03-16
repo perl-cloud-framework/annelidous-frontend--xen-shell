@@ -314,7 +314,7 @@ my %dispatch = (
         info => "Archive instance",
     },
     "bandwidth" => { sub  => \&do_bandwidth,
-                     args => "[hourly|daily|weekly|monthly]",
+                     #args => "[hourly|daily|weekly|monthly]",
                      help => "Show your bandwidth usage.",
                      info => "Show your bandwidth usage.",
                    },
@@ -1058,17 +1058,18 @@ sub removeCommands
     #  Bandwidth:  Remove this command unless there is at least one
     # instance which is setup correctly.
     #
-    my $has_vnstat = 0;
-    foreach my $name (@INSTANCES)
-    {
-        $has_vnstat = 1 if ( -e "/var/lib/vnstat/$name" );
-    }
-
-    if ( !$has_vnstat )
-    {
-        $dispatch{ 'bandwidth' } = undef;
-        delete( $dispatch{ 'bandwidth' } );
-    }
+	my $has_vnstat = 1;
+#    my $has_vnstat = 0;
+#    foreach my $name (@INSTANCES)
+#    {
+#        $has_vnstat = 1 if ( -e "/var/lib/vnstat/$name" );
+#    }
+#
+#    if ( !$has_vnstat )
+#    {
+#        $dispatch{ 'bandwidth' } = undef;
+#        delete( $dispatch{ 'bandwidth' } );
+#    }
 
     #
     #  rdns
@@ -1080,14 +1081,15 @@ sub removeCommands
         delete( $dispatch{ 'rdns' } );
     }
 
+# EricW: removing this for now... this isn't exclusionary.
     #
     #  Password changing isn't available if key-based auth is used.
     #
-    if ( -s $HOME."/.ssh/authorized_keys" )
-    {
-        $dispatch{ 'passwd' } = undef;
-        delete( $dispatch{ 'passwd' } );
-    }
+#    if ( -s $HOME."/.ssh/authorized_keys" )
+#    {
+#        $dispatch{ 'passwd' } = undef;
+#        delete( $dispatch{ 'passwd' } );
+#    }
 
     #
     #  If the user can only control one instance then there is
@@ -1424,41 +1426,7 @@ sub do_author
 
 sub do_bandwidth
 {
-
-    # optional reporting period
-    my ($period) = (@_);
-
-    my $arg = "--months";
-
-    #
-    #  See if we got a match
-    #
-    if ( defined($period) )
-    {
-        $arg = "--hours"  if ( lc($period) eq "hourly" );
-        $arg = "--days"   if ( lc($period) eq "daily" );
-        $arg = "--weeks"  if ( lc($period) eq "weekly" );
-        $arg = "--months" if ( lc($period) eq "monthly" );
-    }
-
-    #
-    #  Make sure the user has selected an instance
-    # they can control.
-    #
-    return if ( !isControlling() );
-
-    #
-    #  A user might have N instances, of which only one might
-    # have vnstat setup.  Make sure this instance is setup.
-    #
-    if ( -e "/var/lib/vnstat/$ACTIVE" )
-    {
-        system("vnstat -i $ACTIVE $arg\n");
-    }
-    else
-    {
-        print "Guest '$ACTIVE' is not configured for bandwidth display.\n";
-    }
+		(tied $ACTIVE)->connector->bw();
 }
 
 
