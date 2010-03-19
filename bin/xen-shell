@@ -822,18 +822,18 @@ sub removeCommands
     #  Bandwidth:  Remove this command unless there is at least one
     # instance which is setup correctly.
     #
-	my $has_vnstat = 1;
-#    my $has_vnstat = 0;
-#    foreach my $name (@INSTANCES)
-#    {
-#        $has_vnstat = 1 if ( -e "/var/lib/vnstat/$name" );
-#    }
-#
-#    if ( !$has_vnstat )
-#    {
-#        $dispatch{ 'bandwidth' } = undef;
-#        delete( $dispatch{ 'bandwidth' } );
-#    }
+    my $has_vnstat = 0;
+    #foreach my $name (@INSTANCES)
+    #{
+    #    $has_vnstat = 1 if ( -e "/var/lib/vnstat/$name" );
+	#}
+	$has_vnstat = 1 if ( -e "/var/lib/vnstat/$USER" );
+
+    if ( !$has_vnstat )
+    {
+        $dispatch{ 'bandwidth' } = undef;
+        delete( $dispatch{ 'bandwidth' } );
+    }
 
     #
     #  rdns
