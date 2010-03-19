@@ -268,6 +268,8 @@ use Annelidous::Connector::Xen;
 use Annelidous::Search;
 use Annelidous::Frontend::XenShell::ActiveHandler;
 
+use Tcl;
+
 package CloudShell;
 
 #
@@ -1032,9 +1034,19 @@ sub runMainLoop
     #
     my $prompt = getPrompt();
 
+	# We create a *safe* TCL interpreter
+	# Stdout is allowed...
+	my $t=Tcl::new();
+	my $tcl=$t->CreateSlave('slave',1);
+	$t->Eval("interp share {} stdout slave");
+
+	foreach (keys %lookupTable) {
+		$tcl->CreateCommand($_,$lookupTable{$_}->{'sub'});
+	}
     #
     #  Command loop.
     #
+	my @tclstack;
     while ( defined( my $line = $term->readline($prompt) ) )
     {
 
@@ -1045,47 +1057,14 @@ sub runMainLoop
         $line =~ s/^\s+//;
         $line =~ s/\s+$//;
 
-        # If we have arguments then split them up.
-        my ( $word, @args ) = split( /[ \t]/, $line );
-
-        # Lookup command in our dispatch table.
-        my $cmd = $lookupTable{ lc($word) };
-
-        if ($cmd)
-        {
-
-            # Call the function with any arguments we might have.
-            $cmd->{ 'sub' }->( join( " ", @args ) );
-
-            # Add a successful line to our history, if we can.
-            if ( UNIVERSAL::can( $term, 'add_history' ) )
-            {
-                unless ($word =~ /passwd/) {
-					$term->add_history($line);
-				} else {
-					$term->add_history($word." **** ****");
-				}
-            }
-        }
-        else
-        {
-
-            #
-            #  We got a word which wasn't recognised as a command.
-            # was it a hostname?
-            #
-            if ( canControl($word) )
-            {
-                do_control($word);
-            }
-            else
-            {
-                if ( defined($word) && length($word) )
-                {
-                    print "Unknown command: '$word' - type 'help' for help.\n";
-                }
-            }
-        }
+		eval {
+		$tcl->Eval($line);
+		$term->add_history($line);
+		};
+		if ($@) {
+			print $@;
+			print "Type 'help' for help.\n";
+		}
 
         #
         #  Update the prompt - required in the case where the user
