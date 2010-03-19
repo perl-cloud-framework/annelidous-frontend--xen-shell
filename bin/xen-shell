@@ -268,6 +268,8 @@ use Annelidous::Connector::Xen;
 use Annelidous::Search;
 use Annelidous::Frontend::XenShell::ActiveHandler;
 
+package CloudShell;
+
 #
 #  Release number of this script.
 #
@@ -295,7 +297,6 @@ $CONFIG{ 'allow_force_shutdown' } = 0;
 # (i.e coping with per-instance command blacklisting.)
 #
 my %xenBlacklists;
-
 
 
 #
@@ -483,7 +484,6 @@ parseCommandLineArguments();
 #
 parseConfigurationFile( $CONFIG{ 'config' } ) if ( -e $CONFIG{ 'config' } );
 
-
 #
 #  The previous lookup table contains *all* command mappings.
 #
@@ -499,7 +499,6 @@ my %lookupTable;
 #
 # Annelidous Search
 #
-#my $asearch=new Annelidous::Search(subclass=>'Annelida::Search::Ubersmith');
 use Data::Dumper;
 use DBI;
 require GrokThis::Cloud::Search;
@@ -541,93 +540,8 @@ my $ACTIVE = '';
 #
 tie $ACTIVE, "Annelidous::Frontend::XenShell::ActiveHandler", $annelidous;
 
-####
-#
-#  Start of code
-#
-####
-
-
-
-#
-# Find the username and homedir of the user who invoked this script.
-# EricW: Changed $REAL_USER_ID to $< as this worked on my systems.
-#
-my @UENT = getpwuid($<);
-my $USER = $UENT[0];
-my $HOME = $UENT[7];
-
-# For security, we sanity-check the $HOME variable.
-for ($HOME) {
-	if (/^\s*$/ || /\.\./ || /^[^\/]/) {
-		die "Bad HOME: ".$HOME."\n"; # Bad wolf... blowing down my $HOME
-	}
-};
-
-#
-# Sanity check our host and user.
-#
-sanityCheck();
-
-
-
-#
-#  Remove commands the user can't access - either because the supporting
-# software is not present, or because they've been globally disabled.
-#
-removeCommands();
-
-
-
-#
-# Show our banner.
-#
-showBanner();
-
-
-#
-#  If the user specified an initial machine to control then use it,
-# if possible.
-#
-$ACTIVE = $CONFIG{ 'control' }
-  if ( defined( $CONFIG{ 'control' } ) &&
-       canControl( $CONFIG{ 'control' } ) );
-
-
-#
-#  Setup a signal handler to make sure we save history at exit-time.
-#
-$SIG{ INT } = "do_exit";
-
-
-#
-#
-#  Create the readline interface.
-#
-my $term = createTerminal();
-
-
-
-#
-#  Load any command history which might be present.
-#
-loadHistory($term);
-
-
-
-#
-#  Run our command loop - note this never returns.
-#
-runMainLoop($term);
-
-
-
-#
-#  Never reached
-#
-exit;
-
-
+# Execute main subroutine, unless we're being subclassed...
+__PACKAGE__->main() unless caller;
 
 =begin doc
 
@@ -647,7 +561,7 @@ sub parseCommandLineArguments
     #  Parse options.
     #
     if (
-        !GetOptions(
+        !Getopt::Long::GetOptions(
             "help",    \$SHOW_HELP,
             "manual",  \$SHOW_MANUAL,
             "version", \$SHOW_VERSION,
@@ -2344,6 +2258,79 @@ END
 }
 
 
+####
+#
+#  Start of code
+#
+####
+
+sub main {
+	#
+	# Find the username and homedir of the user who invoked this script.
+	# EricW: Changed $REAL_USER_ID to $< as this worked on my systems.
+	#
+	my @UENT = getpwuid($<);
+	our $USER = $UENT[0];
+	our $HOME = $UENT[7];
+
+	# For security, we sanity-check the $HOME variable.
+	for ($HOME) {
+		if (/^\s*$/ || /\.\./ || /^[^\/]/) {
+			die "Bad HOME: ".$HOME."\n"; # Bad wolf... blowing down my $HOME
+		}
+	};
+
+	#
+	# Sanity check our host and user.
+	#
+	sanityCheck();
+
+	#
+	#  Remove commands the user can't access - either because the supporting
+	# software is not present, or because they've been globally disabled.
+	#
+	removeCommands();
+
+	#
+	# Show our banner.
+	#
+	showBanner();
+
+	#
+	#  If the user specified an initial machine to control then use it,
+	# if possible.
+	#
+	$ACTIVE = $CONFIG{ 'control' }
+	  if ( defined( $CONFIG{ 'control' } ) &&
+		   canControl( $CONFIG{ 'control' } ) );
+
+	#
+	#  Setup a signal handler to make sure we save history at exit-time.
+	#
+	$SIG{ INT } = "do_exit";
+
+	#
+	#
+	#  Create the readline interface.
+	#
+	my $term = createTerminal();
+
+	#
+	#  Load any command history which might be present.
+	#
+	loadHistory($term);
+
+	#
+	#  Run our command loop - note this never returns.
+	#
+	runMainLoop($term);
+
+	#
+	#  Never reached
+	#
+	exit;
+}
+
 =head1 AUTHOR
 
  Steve
@@ -2369,3 +2356,4 @@ The LICENSE file contains the full text of the license.
 
 =cut
 
+1;
