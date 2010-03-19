@@ -1040,6 +1040,11 @@ sub runMainLoop
 	my $tcl=$t->CreateSlave('slave',1);
 	$t->Eval("interp share {} stdout slave");
 
+	# Init shell
+	open(my $TCLinit, "/etc/cloudinf/cloud-shell.init.tcl");
+	$tcl->EvalFileHandle($TCLinit);
+	close $TCLinit;
+
 	foreach (keys %lookupTable) {
 		$tcl->CreateCommand($_,$lookupTable{$_}->{'sub'});
 	}
@@ -1062,6 +1067,7 @@ sub runMainLoop
 		$term->add_history($line);
 		};
 		if ($@) {
+			$@ =~ s/\s*at \/usr.*//;
 			print $@;
 			print "Type 'help' for help.\n";
 		}
