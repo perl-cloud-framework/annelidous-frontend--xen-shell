@@ -268,8 +268,6 @@ use Annelidous::Connector::Xen;
 use Annelidous::Search;
 use Annelidous::Frontend::XenShell::ActiveHandler;
 
-use Tcl;
-
 package CloudShell;
 
 #
@@ -1008,26 +1006,69 @@ sub loadHistory
     }
 }
 
+sub shell_javascript {
+	my $term = shift;
+
+	# Eddy-fire-lizard!
+	use JavaScript::SpiderMonkey;
+
+    #
+    #  Prompt
+    #
+    my $prompt = getPrompt();
+
+	# We create a *safe* TCL interpreter
+	# Stdout is allowed...
+	my $js = JavaScript::SpiderMonkey->new();
+	$js->init();
+
+	# Provide functional write functions.
+    $js->function_set("write", sub { print "@_"; });
+    $js->function_set("writeln", sub { print "@_\n"; });
+	$document = $js->object_by_path("document");
+    $js->function_set("write", sub { print "@_"; }, $document);
+    $js->function_set("writeln", sub { print "@_\n"; }, $document);
+
+	foreach (keys %lookupTable) {
+		$js->function_set($_,$lookupTable{$_}->{'sub'});
+	}
+
+    #
+    #  Command loop.
+    #
+    while ( defined( my $line = $term->readline($prompt) ) )
+    {
+
+        # Ignore empty lines.
+        next if ( !length($line) );
+
+        # Strip leading and trailing whitespace.
+        $line =~ s/^\s+//;
+        $line =~ s/\s+$//;
+
+		if ($js->eval($line) == 1) {
+			$term->add_history($line);
+		} else {
+			$@ =~ s/\s*at \/usr.*//;
+			print $@;
+			print "Type 'help' for help.\n";
+		}
+
+        #
+        #  Update the prompt - required in the case where the user
+        # has switched control to another instance.
+        #
+        $prompt = getPrompt();
+    }
+}
 
 
-=begin doc
+sub shell_tcl {
+	use Tcl;
+	my $term = shift;
 
-  Run the input reading + dispatching loop.   We use the dispatch
- table already defined to handle input.
-
-  Parsing of command line input is extremely minimal - we break the
- input line into "word" which is the first whitespace deliminated
- token on the line and "args" which is the remainder of the line.
-
-  This is sufficient for our purposes.
-
-=end doc
-
-=cut
-
-sub runMainLoop
-{
-    my ($term) = (@_);
+	# We only include this evil beast if we're using it.
+	use Tcl;
 
     #
     #  Prompt
@@ -1046,12 +1087,16 @@ sub runMainLoop
 	close $TCLinit;
 
 	foreach (keys %lookupTable) {
-		$tcl->CreateCommand($_,$lookupTable{$_}->{'sub'});
+		$tcl->CreateCommand($_,sub {
+			my $function=shift;
+			my $interp=shift;
+			my $function1=shift;
+			$lookupTable{$function}->{'sub'} (@_);
+		}, $_);
 	}
     #
     #  Command loop.
     #
-	my @tclstack;
     while ( defined( my $line = $term->readline($prompt) ) )
     {
 
@@ -1078,7 +1123,40 @@ sub runMainLoop
         #
         $prompt = getPrompt();
     }
+}
 
+
+=begin doc
+
+  Run the input reading + dispatching loop.   We use the dispatch
+ table already defined to handle input.
+
+  Parsing of command line input is extremely minimal - we break the
+ input line into "word" which is the first whitespace deliminated
+ token on the line and "args" which is the remainder of the line.
+
+  This is sufficient for our purposes.
+
+=end doc
+
+=cut
+
+use Switch;
+
+sub runMainLoop
+{
+    my ($term) = (@_);
+	# Determine which interactive shell to use.
+	my $shell=(tied $ACTIVE)->vm->data->{interactive_shell};
+	$shell ||= "tcl";
+
+	switch ($shell) {
+		case "tcl" { &shell_tcl ($term); }
+		case "javascript" { &shell_javascript ($term); }
+		else { &shell_tcl ($term); }
+		#/javascript/ && &shell_javascript $term;
+		#/simple/ && &shell_simple $term;
+	}
     #
     #  Save history on exit.
     #
@@ -2180,19 +2258,25 @@ sub do_version
 
 sub do_whoami
 {
-    print $USER . "\n";
+    #print $USER . "\n";
+    my $d=(tied $ACTIVE)->connector->vm->data;
+	print Dumper $d;
+	return $d;
 }
 
 sub do_setpref
 {
-    my ($args) = (@_);
+    #my ($args) = (@_);
+	my ($var, $val) = @_;
 
-    if ( !defined($args) || ( !length($args) ) )
+    #if ( !defined($args) || ( !length($args) ) )
+    if ( !defined($var) || ( !defined($val) ) )
     {
-print <<EOF
+print <<EOF;
 Set configuration variables.
 Documentation forthcoming...
 EOF
+		return;
     }
 
     #
@@ -2203,7 +2287,7 @@ EOF
 	#  set var=val
 	#  set var:val
     #
-    my ( $var, $val ) = split( /[ :=\t]/, $args, 2 );
+    #my ( $var, $val ) = split( /[ :=\t]/, $args, 2 );
 
 	unless (defined($val)) {
 		print "No value specified.\n";
@@ -2214,14 +2298,15 @@ EOF
 		'autoheal',
 		'cpu_arch',
 		'boot_method',
-		'disk_namespace'
+		'disk_namespace',
+		'interactive_shell'
 	);
 	my %avarhash;
 	@avarhash{@allowedvars}=();
 	if (exists $avarhash{$var}) {
 		(tied $ACTIVE)->vm->setuvar($var, $val);
 	} else {
-		print "Illegal variable specified.";
+		print "Illegal variable specified.\n";
 	}
 }
 
