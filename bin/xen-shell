@@ -342,6 +342,13 @@ my %dispatch = (
                 help => "Exit the shell.",
                 info => "Exit the shell.",
               },
+    "?" => {
+        sub  => \&do_help,
+        args => "[command]",
+        help =>
+          "Show help about the specified command, or all commands if no command is specified.",
+        info => "Show general, or command-specific, help information.",
+    },
     "help" => {
         sub  => \&do_help,
         args => "[command]",
@@ -390,12 +397,6 @@ my %dispatch = (
         help =>
           "Recover from a backup.",
         info => "Restore files to your system.",
-    },
-    "rescue" => {
-        sub => \&do_rescue,
-        help =>
-          "Perform a rescue. Boots into single-user mode.",
-        info => "Boot into single-user rescue mode.",
     },
     "serial" =>    # Dupe: console
       { sub => \&do_console,
