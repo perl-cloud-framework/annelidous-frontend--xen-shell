@@ -454,6 +454,14 @@ my %dispatch = (
                 help => "Show the user you're connected as.",
                 info => "Show the user you're connected to the host system as.",
     },
+    "fetchuri" => {
+                sub  => \&do_fetch,
+                help =>
+					"Fetch information from a URI / URL. For scripted use only.\n".
+					"Returns -2 if no Content-Length provided by server.\n".
+					"Returns -1 if Content-Length is greater than server limit.\n",
+                info => "Fetch information from a URI / URL. FOR SCRIPTED USE ONLY.",
+    },
 	"setpref" => {
 				sub => \&do_setpref,
 				help => "Set configuration variables\n".
@@ -1033,6 +1041,9 @@ sub shell_javascript {
 	foreach (keys %lookupTable) {
 		$js->function_set($_,$lookupTable{$_}->{'sub'});
 	}
+	$js->function_set("_uriexec",sub {
+		$js->eval(do_fetch(@_));
+	});
 
     #
     #  Command loop.
@@ -1095,6 +1106,12 @@ sub shell_tcl {
 			$lookupTable{$function}->{'sub'} (@_);
 		}, $_);
 	}
+	$tcl->CreateCommand("_uriexec",sub {
+		my $function=shift;
+		my $interp=shift;
+		my $function1=shift;
+		$interp->Eval(do_fetch(@_));
+	},$_);
     #
     #  Command loop.
     #
@@ -2317,7 +2334,22 @@ sub do_getpref
 	print Dumper $pref;
 }
 
+sub do_fetch
+{
+	use LWP::Simple;
+	my $uri=shift;
+	my (
+		undef,
+		$length,
+		undef,
+		undef,
+		undef
+	)=head($uri);
 
+	return -2 if ( ! defined($length) );
+	return -1 if ($length > 2048);
+	return get($uri);
+}
 
 
 #
