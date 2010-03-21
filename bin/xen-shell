@@ -1074,9 +1074,70 @@ sub shell_javascript {
     }
 }
 
+#
+# This doesn't work!
+# Simple commands like help do, but
+# not ones that use the API, get errors like:
+# Can't locate package Annelidous::Connector for @Annelidous::Connector::Xen::ISA
+#
+sub shell_perl {
+	my $term = shift;
+
+	# We only include this evil beast if we're using it.
+	use Safe;
+
+    #
+    #  Prompt
+    #
+    my $prompt = getPrompt();
+
+	# We create a *safe* TCL interpreter
+	# Stdout is allowed...
+	my $interp=new Safe("Dungeon");
+
+	my %cmds;
+	delete $lookupTable{'?'};
+	foreach my $cmd (keys %lookupTable) {
+		print "Adding $cmd.\n";
+		eval qq{
+			sub Dungeon::$cmd {
+				\$lookupTable{'$cmd'}->{'sub'}();
+			}
+		};
+		print $@."\n" if ($@);
+	}
+
+    #
+    #  Command loop.
+    #
+    while ( defined( my $line = $term->readline($prompt) ) )
+    {
+
+        # Ignore empty lines.
+        next if ( !length($line) );
+
+        # Strip leading and trailing whitespace.
+        $line =~ s/^\s+//;
+        $line =~ s/\s+$//;
+
+		my $ret=$interp->reval($line);
+		if (defined($ret)) {
+			$term->add_history($line);
+		} else {
+			print "Unknown or bad command.\n";
+			print "Type 'help' for help.\n";
+		}
+
+        #
+        #  Update the prompt - required in the case where the user
+        # has switched control to another instance.
+        #
+        $prompt = getPrompt();
+    }
+}
+
 
 sub shell_tcl {
-	use Tcl;
 	my $term = shift;
 
 	# We only include this evil beast if we're using it.
@@ -1171,6 +1232,7 @@ sub runMainLoop
 	switch ($shell) {
 		case "tcl" { &shell_tcl ($term); }
 		case "javascript" { &shell_javascript ($term); }
+		#case "perl" { &shell_perl ($term); }
 		else { &shell_tcl ($term); }
 		#/javascript/ && &shell_javascript $term;
 		#/simple/ && &shell_simple $term;
