@@ -1271,6 +1271,52 @@ sub shell_tcl {
     }
 }
 
+sub shell_simple {
+	my $term = shift;
+
+    #
+    #  Prompt
+    #
+    my $prompt = getPrompt();
+
+    #
+    #  Command loop.
+    #
+    while ( defined( my $line = $term->readline($prompt) ) )
+    {
+        # Ignore empty lines.
+        next if ( !length($line) );
+
+        # Strip leading and trailing whitespace.
+        $line =~ s/^\s+//;
+        $line =~ s/\s+$//;
+
+		my ( $word, @args ) = split( /[ \t]/, $line );
+		# Lookup command in our dispatch table.
+		# Call the function with any arguments we might have.
+		eval {
+			if (exists( $lookupTable{ lc($word) } )) {
+				$lookupTable{$word}->{ 'sub' } (@args);
+				$term->add_history($line);
+			} else {
+				die "No such command.";
+			}
+		};
+		if ($@) {
+			$@ =~ s/\s*at \/usr.*//;
+			print $@;
+			print "Type 'help' for help.\n";
+		}
+
+        #
+        #  Update the prompt - required in the case where the user
+        # has switched control to another instance.
+        #
+        $prompt = getPrompt();
+    }
+}
+
+
 
 =begin doc
 
@@ -1300,6 +1346,7 @@ sub runMainLoop
 		case "tcl" { &shell_tcl ($term); }
 		case "javascript" { &shell_javascript ($term); }
 		case "ruby" { &shell_ruby ($term); }
+		case "simple" { &shell_simple ($term); }
 		#case "perl" { &shell_perl ($term); }
 		else { &shell_tcl ($term); }
 		#/javascript/ && &shell_javascript $term;
@@ -2368,7 +2415,11 @@ sub do_uptime
     return if ( !isControlling() );
 
     my $ret=(tied $ACTIVE)->connector->uptime;
-	print $ret;
+	if ($ret) {
+		print $ret;
+	} else {
+		print "Uptime unavailable. Is the instance running?\n";
+	}
 }
 
 
