@@ -1074,6 +1074,74 @@ sub shell_javascript {
     }
 }
 
+sub shell_ruby {
+	my $term = shift;
+
+	# Gem-ity-cricket! 
+	use Inline::Ruby;
+
+    #
+    #  Prompt
+    #
+    my $prompt = getPrompt();
+
+	# Hack to bring our perl functions into Ruby
+Inline::Ruby::rb_eval <<RUBY;
+\$perlfunc={}
+def register_perl (funname,funref)
+	\$perlfunc[funname] = funref
+end
+RUBY
+
+	# We can't declare a '?' method here.
+	delete $lookupTable{'?'};
+	foreach my $cmd (keys %lookupTable) {
+		Inline::Ruby::rb_call_function(
+			'register_perl',$cmd,sub { $lookupTable{$cmd}->{'sub'}(@_) }
+		);
+		Inline::Ruby::rb_eval(qq{
+def $cmd (*args)
+	return \$perlfunc['$cmd'].call(*args)
+end
+		});
+	}
+
+	# We create a *safe* Ruby interpreter
+	# this must be done after the evil hacks above...
+	Inline::Ruby::rb_eval('$SAFE=4');
+
+    #
+    #  Command loop.
+    #
+    while ( defined( my $line = $term->readline($prompt) ) )
+    {
+
+        # Ignore empty lines.
+        next if ( !length($line) );
+
+        # Strip leading and trailing whitespace.
+        $line =~ s/^\s+//;
+        $line =~ s/\s+$//;
+
+		eval {
+			Inline::Ruby::rb_eval($line);
+			$term->add_history($line);
+		};
+		if ($@) {
+			$@ =~ s/\s*at \/usr.*//;
+			print $@;
+			print "Type 'help' for help.\n";
+		}
+
+        #
+        #  Update the prompt - required in the case where the user
+        # has switched control to another instance.
+        #
+        $prompt = getPrompt();
+    }
+}
+
+
 #
 # This doesn't work!
 # Simple commands like help do, but
@@ -1083,7 +1151,7 @@ sub shell_javascript {
 sub shell_perl {
 	my $term = shift;
 
-	# We only include this evil beast if we're using it.
+	# We've gotta be safe!
 	use Safe;
 
     #
@@ -1091,8 +1159,7 @@ sub shell_perl {
     #
     my $prompt = getPrompt();
 
-	# We create a *safe* TCL interpreter
-	# Stdout is allowed...
+	# We create a *safe* Perl interpreter
 	my $interp=new Safe("Dungeon");
 
 	my %cmds;
@@ -1232,6 +1299,7 @@ sub runMainLoop
 	switch ($shell) {
 		case "tcl" { &shell_tcl ($term); }
 		case "javascript" { &shell_javascript ($term); }
+		case "ruby" { &shell_ruby ($term); }
 		#case "perl" { &shell_perl ($term); }
 		else { &shell_tcl ($term); }
 		#/javascript/ && &shell_javascript $term;
